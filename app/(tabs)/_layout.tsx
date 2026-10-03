@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Search, ShoppingBag, Gift, User } from 'lucide-react-native';
+import { Home, Search, ShoppingBag, Users, User } from 'lucide-react-native';
 import { colors } from '../../src/theme/tokens';
 import { type } from '../../src/theme/typography';
 
@@ -18,7 +18,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: icon(Home) }} />
       <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: icon(Search) }} />
       <Tabs.Screen name="shop" options={{ title: 'Shop', tabBarIcon: icon(ShoppingBag) }} />
-      <Tabs.Screen name="surprise" options={{ title: 'Surprise', tabBarIcon: icon(Gift) }} />
+      <Tabs.Screen name="community" options={{ title: 'Community', tabBarIcon: icon(Users) }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: icon(User) }} />
     </Tabs>
   );

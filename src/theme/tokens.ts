@@ -6,9 +6,12 @@ export const colors = {
   stone: '#6B6B6B',
   gold: '#B8975A',
   goldDeep: '#8A6A35',
+  /** Flat translucent layers for text and controls sitting on photographs (not gradients). */
+  scrim: 'rgba(0,0,0,0.32)',
+  veil: 'rgba(255,255,255,0.92)',
 } as const;
 
 export const space = (n: number) => n * 8;
 export const margin = 24;
-export const radius = { card: 4, pill: 999 } as const;
+export const radius = { card: 4, photo: 4, pill: 999 } as const;
 export const maxWidth = 520;

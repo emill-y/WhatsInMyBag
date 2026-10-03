@@ -1,9 +1,11 @@
-export type BagType = 'makeup' | 'diaper' | 'travel' | 'everyday' | 'grocery' | 'home' | 'custom';
+export type BagType = 'travel' | 'makeup' | 'mom' | 'work' | 'study';
+export type DemoId = 'travel' | 'makeup' | 'mom';
 
 export interface User {
   id: string; name: string; lifeStage: string[]; values: string[];
   avoidIngredients: string[]; skinType?: string; kids?: { age: number; diaperSize?: string }[];
   notify: { push: boolean; email: boolean; sms: boolean; quietHours?: [string, string] };
+  avatar?: string;
 }
 
 export interface Bag { id: string; userId: string; type: BagType; name: string; }
@@ -15,13 +17,14 @@ export interface Item {
   label: string; remainingOverride?: number;
 }
 
-/** image is a placeholder silhouette key until real cut-outs arrive */
-export type Shape = 'tube' | 'bottle' | 'jar' | 'compact' | 'stick' | 'box' | 'pouch' | 'cup' | 'bar' | 'spray' | 'wand';
-
 export interface Product {
   id: string; brand: string; name: string; category: string; tags: string[];
   values: string[]; ingredients: string[]; price: number; sizeAmount: number; unit: string;
-  image: Shape; retailerUrl: string; inStock: boolean; sponsored?: boolean; bagFit?: 'mini' | 'regular' | 'large';
+  /** Unsplash photo id of this exact kind of item */
+  photo: string;
+  bagTypes: BagType[];
+  retailerUrl: string; inStock: boolean; sponsored?: boolean; bagFit?: 'mini' | 'regular' | 'large';
+  blurb?: string;
 }
 
 export interface Dupe { productId: string; dupeId: string; matchScore: number; reason: string; }
@@ -31,9 +34,21 @@ export interface Trip {
   travelers: { kind: 'adult' | 'child' | 'baby'; age?: number }[]; bagId: string;
 }
 
-export interface SurpriseCard {
-  kind: 'complement' | 'routine' | 'joy' | 'tip'; productIds: string[]; title: string; body: string;
-}
-export interface SurpriseSet { week: string; cards: SurpriseCard[]; dismissed: string[]; }
-
 export interface Alert { id: string; itemId: string; title: string; when: string; }
+
+export interface Post {
+  id: string; bagType: BagType; title: string; caption: string;
+  author: { name: string; role: string; avatar: string };
+  photos: string[];
+  /** Optional short clip (mp4 URL). Rendered on web with a native video element. */
+  video?: string;
+  productIds: string[];
+  helpful: number; when: string;
+  notes: { name: string; text: string }[];
+  mine?: boolean;
+}
+
+export interface Demo {
+  id: DemoId; label: string; tagline: string; cover: string;
+  user: User; bags: Bag[]; items: Item[]; alerts: Alert[]; trip?: Trip;
+}

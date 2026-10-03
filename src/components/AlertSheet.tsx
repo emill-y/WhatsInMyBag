@@ -5,23 +5,23 @@ import { type } from '../theme/typography';
 import { useStore } from '../store';
 import { productById } from '../data/products';
 import { daysLeft } from '../logic/depletion';
-import { ProductArt } from './ProductArt';
+import { Photo } from './Photo';
 import { OutlineButton, PrimaryButton } from './ui';
 
 /** In-app sheet styled like a push notification. */
 export function AlertSheet() {
   const id = useStore((s) => s.alertItemId);
   const item = useStore((s) => s.items.find((i) => i.id === id));
-  const { showAlert, snooze } = useStore();
+  const { showAlert, flash } = useStore();
   const insets = useSafeAreaInsets();
   if (!item) return null;
   const p = productById(item.productId);
   const d = daysLeft(item);
   return (
-    <Pressable onPress={() => showAlert(null)} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.25)' } as any} accessibilityLabel="Close">
-      <Pressable style={{ marginTop: insets.top + 12, marginHorizontal: 12, alignSelf: 'center', width: '94%', maxWidth, backgroundColor: colors.paper, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 16 }}>
+    <Pressable onPress={() => showAlert(null)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.scrim }} accessibilityLabel="Close">
+      <Pressable style={{ marginTop: insets.top + 12, alignSelf: 'center', width: '94%', maxWidth, backgroundColor: colors.paper, borderRadius: 18, padding: 16 }}>
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-          <View style={{ backgroundColor: colors.porcelain, borderRadius: radius.card, padding: 4 }}><ProductArt shape={p.image} id={p.id} size={44} /></View>
+          <Photo id={p.photo} width={200} label={item.label} fallbackSize={11} style={{ width: 52, height: 52, borderRadius: radius.card }} />
           <View style={{ flex: 1 }}>
             <Text style={type.smallStone}>What’s In My Bag · now</Text>
             <Text style={[type.body, { lineHeight: 22 }]}>Your {item.label.toLowerCase()} runs out in about {Math.max(d, 1)} days.</Text>
@@ -29,7 +29,7 @@ export function AlertSheet() {
         </View>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
           <PrimaryButton label="Reorder" style={{ flex: 1 }} onPress={() => { Linking.openURL(p.retailerUrl); showAlert(null); }} />
-          <OutlineButton label="Snooze" style={{ flex: 1 }} onPress={() => snooze(item.id)} />
+          <OutlineButton label="Snooze" style={{ flex: 1 }} onPress={() => { showAlert(null); flash('We’ll remind you in 3 days'); }} />
         </View>
       </Pressable>
     </Pressable>

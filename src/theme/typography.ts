@@ -24,5 +24,5 @@ export const type = {
   small: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 18, color: colors.ink } as TextStyle,
   smallStone: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 18, color: colors.stone } as TextStyle,
   price: { fontFamily: fonts.sansMedium, fontSize: 13, lineHeight: 18, color: colors.ink } as TextStyle,
-  tab: { fontFamily: fonts.sansMedium, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase' } as TextStyle,
+  tab: { fontFamily: fonts.sansMedium, fontSize: 9.5, letterSpacing: 0.3, textTransform: 'uppercase' } as TextStyle,
 };

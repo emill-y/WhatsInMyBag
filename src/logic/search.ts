@@ -7,6 +7,7 @@ const median = (xs: number[]) => {
   return s.length ? s[Math.floor(s.length / 2)] : 0;
 };
 
+const VALUE_WORDS = ['vegan', 'nut-free', 'cruelty-free', 'fragrance-free'];
 const STOP = new Set(['a', 'an', 'the', 'for', 'something', 'new', 'like', 'some', 'my']);
 const SYN: Record<string, string[]> = { snacks: ['snack'], treat: ['snack', 'joy'], lipstick: ['lips'], makeup: ['face', 'eyes', 'lips', 'cheeks'] };
 
@@ -30,10 +31,11 @@ export function search(
     const hay = [p.name, p.category, p.brand, ...p.tags, ...p.values].join(' ').toLowerCase();
     const textHits = words.filter((w) => hay.includes(w)).length;
     if (words.length && !textHits) continue;
-
-    // values the query asks for are hard requirements
-    const askedValues = p.values.length ? [] : words.filter((w) => ['vegan', 'nut-free', 'cruelty-free'].includes(w));
-    if (askedValues.length) continue;
+    // Values in the query ("vegan") are hard requirements; the rest ("snack") must match too.
+    const valueWords = words.filter((w) => VALUE_WORDS.includes(w));
+    const nounWords = words.filter((w) => !VALUE_WORDS.includes(w));
+    if (valueWords.some((v) => !p.values.some((pv) => pv.toLowerCase() === v))) continue;
+    if (nounWords.length && !nounWords.some((w) => hay.includes(w))) continue;
 
     const valueMatches = p.values.filter((v) => user.values.includes(v));
     // complement: owned items sharing tags, grouped by bag
@@ -57,9 +59,10 @@ export function search(
 function whyLine(p: Product, values: string[], best: { bag: Bag; shared: number; item: Item } | null, inRange: boolean): string {
   const vals = values.slice(0, 2).map((v, i) => (i ? v.toLowerCase() : v)).join(' and ');
   const bagName = best?.bag.name.toLowerCase();
+  const where = `in your ${bagName}`;
   const thing = best?.item.label.toLowerCase();
-  if (vals && best && best.shared >= 1) return `${vals}, like the ${thing} in your ${bagName} bag.`;
-  if (best && best.shared >= 1) return `Pairs with the ${thing} in your ${bagName} bag.`;
+  if (vals && best && best.shared >= 1) return `${vals}, like the ${thing} ${where}.`;
+  if (best && best.shared >= 1) return `Pairs with the ${thing} ${where}.`;
   if (vals) return `${vals}, as you prefer.`;
   if (inRange) return 'Right around what you usually spend.';
   return 'A new find for your bag.';
