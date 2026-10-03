@@ -1,5 +1,5 @@
 {
-  "name": "whats-in-my-bag",
+  "name": "chelsea",
   "version": "0.1.0",
   "private": true,
   "main": "expo-router/entry",
@@ -10,7 +10,9 @@
     "android": "expo start --android",
     "build:web": "expo export -p web",
     "typecheck": "tsc --noEmit",
-    "photos": "node scripts/fetch-photos.mjs"
+    "photos": "node scripts/fetch-photos.mjs",
+    "build": "expo export -p web && node scripts/build-site.mjs",
+    "preview": "node scripts/preview.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/eb-garamond": "^0.4.0",

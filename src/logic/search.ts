@@ -22,7 +22,6 @@ export function search(
   const results: Result[] = [];
 
   for (const p of all) {
-    if (ownedIds.has(p.id)) continue;
     if (p.ingredients.some((ing) => user.avoidIngredients.includes(ing))) continue;
     if (opts.inStockOnly && !p.inStock) continue;
     if (opts.maxPrice && p.price > opts.maxPrice) continue;
@@ -51,6 +50,12 @@ export function search(
     const inRange = med ? p.price >= med * 0.5 && p.price <= med * 1.5 : true;
     const score = textHits * 3 + valueMatches.length * 2 + (bestBag?.shared ?? 0) + (inRange ? 1 : 0) + (p.inStock ? 0.5 : -2);
 
+    const ownedItem = owned.find((i) => i.productId === p.id && i.status !== 'want');
+    if (ownedItem) {
+      const bag = bags.find((b) => b.id === ownedItem.bagId);
+      results.push({ product: p, score: score - 3, why: `Already in your ${bag?.name.toLowerCase() ?? 'bag'}. Reorder any time.` });
+      continue;
+    }
     results.push({ product: p, score, why: whyLine(p, valueMatches, bestBag, inRange) });
   }
   return results.sort((a, b) => b.score - a.score);

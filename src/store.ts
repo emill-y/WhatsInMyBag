@@ -2,20 +2,28 @@ import { create } from 'zustand';
 import { demos, starterProducts } from './data/demos';
 import { posts as seedPosts } from './data/community';
 import { productById } from './data/products';
-import { Alert, Bag, BagType, DemoId, Item, Post, Trip, User } from './data/types';
-import { correct } from './logic/depletion';
+import { Alert, Bag, BagType, DemoId, Item, Post, Reminder, Trip, User } from './data/types';
+import { correct, daysLeft, expiresInDays, status } from './logic/depletion';
 
 const BAG_NAMES: Record<BagType, string> = { travel: 'Carry-on', makeup: 'Makeup bag', mom: 'Diaper bag', work: 'Work tote', study: 'Study bag' };
 const shortLabel = (name: string) => name.split(/,| and /)[0].replace(/^(Memory foam|Classic black|Over-ear travel|Insulated steel|Unscented|Nude satin|Rose sheer|Lengthening|Cream|Warm neutrals|Five-piece|Hydrating face|Silicone|Cotton|Oat|Black linen|Reusable|Structured leather|Pastel|Semester)\s+/i, '').replace(/^\w/, (c) => c.toUpperCase());
 
+interface Answers { values: string[]; avoid: string[]; skinType?: string; kidAge?: number; destination?: string }
+
 interface State {
-  demo: DemoId;
+  demo: DemoId; signedIn: boolean; reminders: Reminder[];
   user: User; bags: Bag[]; items: Item[]; alerts: Alert[]; trip?: Trip;
   activeBagId: string; wishlist: string[]; saved: string[];
   posts: Post[]; helpful: string[];
   alertItemId: string | null; toast: string | null;
   loadDemo: (id: DemoId) => void;
-  setupFromOnboarding: (o: { name: string; bagTypes: BagType[]; values: string[]; avoid: string[]; skinType?: string; kidAge?: number; destination?: string }) => void;
+  setupFromOnboarding: (o: { name: string; bagTypes: BagType[] } & Answers) => void;
+  addBags: (types: BagType[], answers: Answers) => void;
+  signOut: () => void;
+  toggleValue: (v: string) => void;
+  addReminder: (r: Omit<Reminder, 'id' | 'on'>) => void;
+  toggleReminder: (id: string) => void;
+  removeReminder: (id: string) => void;
   setBag: (id: string) => void;
   setUser: (u: Partial<User>) => void;
   toggleWish: (productId: string) => void;
@@ -31,9 +39,25 @@ interface State {
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+const weekdayName = (offset: number) => new Date(Date.now() + offset * 864e5).toLocaleDateString(undefined, { weekday: 'long' });
+
+/** Starting reminders: restock what is running low, replace what is expiring, and a weekly repack. */
+function seedReminders(bags: Bag[], items: Item[]): Reminder[] {
+  const out: Reminder[] = [];
+  for (const it of items) {
+    if (it.status === 'want') continue;
+    const st = status(it), d = daysLeft(it), exp = expiresInDays(it);
+    if (st === 'out') out.push({ id: `r-${it.id}`, title: `Replace your ${it.label.toLowerCase()}`, when: 'Today', itemId: it.id, bagId: it.bagId, on: true });
+    else if (st === 'low') out.push({ id: `r-${it.id}`, title: `Reorder ${it.label.toLowerCase()}`, when: d <= 2 ? 'Tomorrow, 9:00' : `${weekdayName(Math.max(1, d - 3))}, 9:00`, itemId: it.id, bagId: it.bagId, on: true });
+    else if (exp != null && exp <= 21) out.push({ id: `r-exp-${it.id}`, title: `Your ${it.label.toLowerCase()} expires in ${exp} days`, when: `${weekdayName(Math.max(1, exp - 7))}, 9:00`, itemId: it.id, bagId: it.bagId, on: true });
+  }
+  for (const b of bags) out.push({ id: `r-repack-${b.id}`, title: `Repack your ${b.name.toLowerCase()}`, when: b.type === 'travel' ? 'Night before you fly' : 'Every Sunday, 19:00', bagId: b.id, on: b.type !== 'work' });
+  return out;
+}
+
 const fromDemo = (id: DemoId) => {
   const d = demos[id];
-  return { demo: id, user: d.user, bags: d.bags, items: d.items, alerts: d.alerts, trip: d.trip, activeBagId: d.bags[0].id };
+  return { demo: id, user: d.user, bags: d.bags, items: d.items, alerts: d.alerts, trip: d.trip, activeBagId: d.bags[0].id, reminders: seedReminders(d.bags, d.items) };
 };
 const newItem = (pid: string, bagId: string, status: Item['status'] = 'have'): Item => ({
   id: `i-${pid}-${bagId}-${Math.random().toString(36).slice(2, 7)}`, bagId, productId: pid, quantity: 1,
@@ -42,10 +66,30 @@ const newItem = (pid: string, bagId: string, status: Item['status'] = 'have'): I
 
 export const useStore = create<State>((set, get) => ({
   ...fromDemo('travel'),
+  signedIn: false,
   wishlist: ['jy-clips'], saved: [], posts: seedPosts, helpful: [],
   alertItemId: null, toast: null,
 
-  loadDemo: (id) => set(fromDemo(id)),
+  loadDemo: (id) => set({ ...fromDemo(id), signedIn: true }),
+  signOut: () => set({ signedIn: false }),
+  toggleValue: (v) => { const u = get().user; set({ user: { ...u, values: u.values.includes(v) ? u.values.filter((x) => x !== v) : [...u.values, v] } }); },
+  addReminder: (r) => set({ reminders: [{ ...r, id: `r-${Date.now()}`, on: true }, ...get().reminders] }),
+  toggleReminder: (id) => set({ reminders: get().reminders.map((r) => (r.id === id ? { ...r, on: !r.on } : r)) }),
+  removeReminder: (id) => set({ reminders: get().reminders.filter((r) => r.id !== id) }),
+  addBags: (types, { values, avoid, skinType, kidAge, destination }) => {
+    const { bags, items, user, trip } = get();
+    const fresh = types.filter((t) => !bags.some((b) => b.type === t));
+    if (!fresh.length) return;
+    const newBags = fresh.map((t) => ({ id: `b-${t}`, userId: user.id, type: t, name: BAG_NAMES[t] }));
+    const newItems = newBags.flatMap((b) => starterProducts[b.type].map((pid) => newItem(pid, b.id)));
+    set({
+      bags: [...bags, ...newBags], items: [...items, ...newItems], activeBagId: newBags[0].id,
+      reminders: [...get().reminders, ...seedReminders(newBags, newItems)],
+      user: { ...user, values: [...new Set([...user.values, ...values])], avoidIngredients: [...new Set([...user.avoidIngredients, ...avoid])], skinType: skinType ?? user.skinType, kids: kidAge != null ? [{ age: kidAge }] : user.kids },
+      trip: trip ?? (fresh.includes('travel') && destination ? { id: 't-new', userId: user.id, destination, start: new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10), end: new Date(Date.now() + 21 * 864e5).toISOString().slice(0, 10), travelers: [{ kind: 'adult' }], bagId: 'b-travel' } : undefined),
+    });
+    get().flash(`${newBags.map((b) => b.name).join(' and ')} added`);
+  },
   setupFromOnboarding: ({ name, bagTypes, values, avoid, skinType, kidAge, destination }) => {
     const types = bagTypes.length ? bagTypes : ['travel' as BagType];
     const bags = types.map((t) => ({ id: `b-${t}`, userId: 'u-me', type: t, name: BAG_NAMES[t] }));
@@ -53,7 +97,7 @@ export const useStore = create<State>((set, get) => ({
     const d = demos[(['travel', 'makeup', 'mom'] as DemoId[]).find((x) => types.includes(x)) ?? 'travel'];
     set({
       user: { ...d.user, id: 'u-me', name: name || 'You', values, avoidIngredients: avoid, skinType, kids: kidAge != null ? [{ age: kidAge }] : undefined, avatar: undefined },
-      bags, items, activeBagId: bags[0].id, alerts: [],
+      bags, items, activeBagId: bags[0].id, alerts: [], signedIn: true, reminders: seedReminders(bags, items),
       trip: types.includes('travel') && destination ? { id: 't-new', userId: 'u-me', destination, start: new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10), end: new Date(Date.now() + 21 * 864e5).toISOString().slice(0, 10), travelers: [{ kind: 'adult' }], bagId: 'b-travel' } : undefined,
     });
   },
@@ -112,7 +156,7 @@ export const useStore = create<State>((set, get) => ({
 
 // Remember the chosen demo and changes across reloads in the browser. Storage can be
 // unavailable (private mode, native without a storage module); the app then starts fresh.
-const KEY = 'wimb-state-v2';
+const KEY = 'chelsea-state-v3';
 const storage = (() => { try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; } })();
 try {
   const saved = storage?.getItem(KEY);

@@ -14,9 +14,9 @@ export function photoUrl(id: string, width = 800): string {
 
 /** Lifestyle and editorial photos used outside product tiles. */
 export const scenes = {
-  welcome: 'bEXzWNIwCyw', // handbag, book, coffee, sunglasses flat lay
-  travel: 'Z4WoeVqqVpI', // open suitcase packed with clothes and neck pillow
-  travelFlatlay: 'CrnALaUMSA4',
+  welcome: 'tcVH_BwHtrc', // a single brown leather handbag on white
+  handbagFlatlay: 'bEXzWNIwCyw',
+  travel: 'CrnALaUMSA4', // travel essentials flat lay
   beachFlatlay: 'CL7vUhACCZ8',
   travelPacked: 'clK5ZFcovc8',
   passports: 'gMJ3tFOLvnA',

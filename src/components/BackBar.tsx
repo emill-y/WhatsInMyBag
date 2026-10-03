@@ -1,11 +1,10 @@
 import { Pressable, Text, View, ViewStyle } from 'react-native';
-import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/tokens';
 import { type } from '../theme/typography';
 
-const back = () => (router.canGoBack() ? router.back() : router.replace('/home'));
+import { goBack as back } from '../nav';
 
 export function BackBar({ title, right }: { title?: string; right?: React.ReactNode }) {
   return (

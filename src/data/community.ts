@@ -7,7 +7,7 @@ export const posts: Post[] = [
     id: 'c-lisbon', bagType: 'travel', title: 'Ten days in Lisbon, one carry-on',
     caption: 'I promised myself no checked bag this year. Everything here fit with room for pastéis on the way home. The neck pillow is non-negotiable.',
     author: { name: 'Inès', role: 'Flies twice a month for work', avatar: portraits.ines },
-    photos: [scenes.travelFlatlay, scenes.travel, scenes.passports],
+    photos: [scenes.travel, scenes.travelPacked, scenes.passports],
     productIds: ['tr-carryon', 'tr-passport', 'tr-pillow', 'tr-sunduo', 'tr-earbuds', 'tr-sunglasses', 'tr-lipbalm', 'jy-clips', 'mo-bars'],
     helpful: 412, when: '2 days ago',
     notes: [
@@ -70,7 +70,7 @@ export const posts: Post[] = [
     id: 'c-handbag', bagType: 'work', title: 'Everyday handbag, edited',
     caption: 'I cleared out eleven receipts and three lip balms. This is what stayed.',
     author: { name: 'Lena', role: 'Architect, walks to work', avatar: portraits.lena },
-    photos: [scenes.welcome, scenes.passportCoffee],
+    photos: [scenes.handbagFlatlay, scenes.passportCoffee],
     productIds: ['tr-sunglasses', 'wk-notebook', 'tr-lipbalm', 'mk-handcream', 'tr-earbuds', 'jy-clips'],
     helpful: 233, when: '2 weeks ago',
     notes: [{ name: 'Zoe', text: 'Eleven receipts is so real.' }],

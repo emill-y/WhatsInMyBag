@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Linking, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { openLink } from '../../src/nav';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, maxWidth, radius } from '../../src/theme/tokens';
 import { type } from '../../src/theme/typography';
@@ -53,7 +54,7 @@ export default function ItemPage() {
         ) : null}
 
         <View style={{ gap: 12, marginTop: 24 }}>
-          {outOfStock ? null : <PrimaryButton label={item.status === 'want' ? 'Shop' : 'Reorder'} onPress={() => Linking.openURL(p.retailerUrl)} />}
+          {outOfStock ? null : <PrimaryButton label={`${item.status === 'want' ? 'Shop' : 'Reorder'} at ${p.retailer}`} onPress={() => openLink(p.retailerUrl)} />}
           {lasts && item.status !== 'want' ? (
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <OutlineButton label="Snooze" style={{ flex: 1 }} onPress={() => flash('We’ll remind you in 3 days')} />
@@ -76,7 +77,7 @@ export default function ItemPage() {
                     <Text style={type.price}>${dp.price}</Text>
                     <Text style={[type.italic, { fontSize: 15, color: colors.stone }]}>{x.reason}</Text>
                     <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                      <PrimaryButton small label="Shop" onPress={() => Linking.openURL(dp.retailerUrl)} />
+                      <PrimaryButton small label={`Shop at ${dp.retailer}`} onPress={() => openLink(dp.retailerUrl)} />
                       <OutlineButton small label="Add to bag" onPress={() => addWant(dp.id, item.bagId)} />
                     </View>
                   </View>

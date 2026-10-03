@@ -10,6 +10,7 @@ import { bagCover } from '../src/data/photos';
 import { starterProducts } from '../src/data/demos';
 import { productById } from '../src/data/products';
 import { useStore } from '../src/store';
+import { goBack } from '../src/nav';
 
 const FREQ = ['Daily', 'A few times a week', 'Occasionally'];
 const CONF = [0.96, 0.93, 0.88, 0.61, 0.55];
@@ -27,14 +28,14 @@ export default function Scan() {
   if (stage === 'camera') return (
     <Screen>
       <BackBar title="Snap your bag" />
-      <Photo id={bagCover[bag.type]} width={1000} label="Sample photo" style={{ aspectRatio: 3 / 4, borderRadius: radius.photo }}>
+      <Photo id={bagCover[bag.type]} width={1000} label="Your bag" style={{ aspectRatio: 3 / 4, borderRadius: radius.photo }}>
         <View style={{ position: 'absolute', top: 20, left: 20, right: 20, bottom: 20, borderWidth: 1, borderColor: colors.gold }} />
         <View style={{ position: 'absolute', bottom: 32, alignSelf: 'center', backgroundColor: colors.veil, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 }}>
           <Text style={type.small}>Tip everything out and lay it flat</Text>
         </View>
       </Photo>
       <PrimaryButton label="Scan" style={{ marginTop: 24 }} onPress={() => setStage('review')} />
-      <Text style={[type.smallStone, { textAlign: 'center', marginTop: 12 }]}>Demo uses a sample photo.</Text>
+      <Text style={[type.smallStone, { textAlign: 'center', marginTop: 12 }]}>Good light helps. Lay things side by side.</Text>
     </Screen>
   );
 
@@ -75,7 +76,7 @@ export default function Scan() {
           </View>
         </View>
       ))}
-      <PrimaryButton label="Add to bag" style={{ marginTop: 40 }} onPress={() => { flash(`Your ${bag.name.toLowerCase()} is up to date`); router.replace('/home'); }} />
+      <PrimaryButton label="Add to bag" style={{ marginTop: 40 }} onPress={() => { flash(`Your ${bag.name.toLowerCase()} is up to date`); goBack(); }} />
     </Screen>
   );
 }

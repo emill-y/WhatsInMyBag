@@ -7,6 +7,7 @@ import { type } from '../../src/theme/typography';
 import { Screen, Wordmark, PillChip, ChipRow, SectionHeader, ProductTile, TextLink, Avatar, PhotoTag, LevelBar, PrimaryButton, Eyebrow } from '../../src/components/ui';
 import { Photo } from '../../src/components/Photo';
 import { useStore } from '../../src/store';
+import { openLink } from '../../src/nav';
 import { productById, products } from '../../src/data/products';
 import { bagCover, scenes } from '../../src/data/photos';
 import { daysLeft, fraction, status } from '../../src/logic/depletion';
@@ -55,7 +56,7 @@ export default function HomeScreen() {
         <Wordmark size={22} />
         <View style={{ flexDirection: 'row', gap: 16 }}>
           <Pressable accessibilityLabel="Scan a bag" onPress={() => router.push('/scan')} hitSlop={8}><Camera size={20} strokeWidth={1.25} color={colors.ink} /></Pressable>
-          <Pressable accessibilityLabel="Show restock alert" onPress={() => showAlert(alerts[0]?.itemId ?? running[0]?.id ?? null)} hitSlop={8}>
+          <Pressable accessibilityLabel="Notifications" onPress={() => router.push('/notifications')} hitSlop={8}>
             <Bell size={20} strokeWidth={1.25} color={colors.ink} />
             {running.length ? <View style={{ position: 'absolute', top: -1, right: -1, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.gold }} /> : null}
           </Pressable>
@@ -68,7 +69,7 @@ export default function HomeScreen() {
       <View style={{ marginTop: 20 }}>
         <ChipRow>
           {bags.map((b) => <PillChip key={b.id} label={b.name} active={b.id === bag.id} onPress={() => { setBag(b.id); setAll(false); }} />)}
-          <PillChip label="+ Add a bag" onPress={() => router.push('/onboarding')} />
+          <PillChip label="+ Add a bag" onPress={() => router.push({ pathname: '/onboarding', params: { mode: 'add' } })} />
         </ChipRow>
       </View>
 
@@ -124,7 +125,7 @@ export default function HomeScreen() {
                   <View style={{ padding: 14 }}>
                     <Text style={type.h3}>{it.label}</Text>
                     <Text style={[type.small, { color: d <= 0 ? colors.ink : colors.goldDeep, marginBottom: 12 }]}>{d <= 0 ? 'Out. Three close matches in stock.' : `About ${d} days left`}</Text>
-                    <PrimaryButton small label={d <= 0 ? 'See matches' : 'Reorder'} onPress={() => router.push(`/item/${it.id}`)} />
+                    <PrimaryButton small label={d <= 0 ? 'See matches' : `Reorder at ${p.retailer}`} onPress={() => (d <= 0 ? router.push(`/item/${it.id}`) : openLink(p.retailerUrl))} />
                   </View>
                 </Pressable>
               );
@@ -170,9 +171,6 @@ export default function HomeScreen() {
         </>
       ) : null}
 
-      <View style={{ alignItems: 'center', marginTop: 48 }}>
-        <TextLink label="Switch demo" onPress={() => router.replace('/')} style={{ color: colors.stone }} />
-      </View>
     </Screen>
   );
 }

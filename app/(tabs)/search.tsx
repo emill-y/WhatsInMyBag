@@ -9,9 +9,10 @@ import { Photo } from '../../src/components/Photo';
 import { useStore } from '../../src/store';
 import { products } from '../../src/data/products';
 import { search } from '../../src/logic/search';
+import { openLink } from '../../src/nav';
 
 const SUGGEST: Record<string, string[]> = {
-  travel: ['travel size spf', 'something for the flight', 'vegan snack'],
+  travel: ['sunglasses', 'travel size spf', 'something for the flight'],
   makeup: ['vegan palette', 'lips', 'a little treat'],
   mom: ['vegan snack', 'baby balm', 'wipes'],
   work: ['coffee', 'notebook', 'vegan snack'],
@@ -83,7 +84,7 @@ export default function SearchScreen() {
                 <ProductTile product={r.product} why={r.why} onPress={() => router.push(`/product/${r.product.id}`)} />
                 <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
                   <TextLink label="Add to bag" onPress={() => addWant(r.product.id, bagId)} />
-                  <TextLink label="Shop" onPress={() => router.push(`/product/${r.product.id}`)} />
+                  <TextLink label={`Shop at ${r.product.retailer}`} onPress={() => openLink(r.product.retailerUrl)} />
                 </View>
               </View>
             ))}

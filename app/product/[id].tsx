@@ -1,4 +1,5 @@
-import { Linking, Text, View, useWindowDimensions } from 'react-native';
+import { Text, View, useWindowDimensions } from 'react-native';
+import { openLink } from '../../src/nav';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, maxWidth, radius } from '../../src/theme/tokens';
 import { type } from '../../src/theme/typography';
@@ -36,7 +37,7 @@ export default function ProductPage() {
           </View>
         ) : null}
         <View style={{ gap: 12, marginTop: 28 }}>
-          <PrimaryButton label={p.inStock ? 'Shop' : 'Out of stock'} onPress={() => p.inStock && Linking.openURL(p.retailerUrl)} />
+          <PrimaryButton label={p.inStock ? `Shop at ${p.retailer}` : 'Out of stock'} onPress={() => p.inStock && openLink(p.retailerUrl)} />
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <OutlineButton label="Add to bag" style={{ flex: 1 }} onPress={() => addWant(p.id)} />
             <OutlineButton label={wish ? 'Saved' : 'Save'} style={{ flex: 1 }} onPress={() => toggleWish(p.id)} />

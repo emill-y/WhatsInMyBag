@@ -25,7 +25,7 @@ export function Bleed({ children, style }: { children: React.ReactNode; style?: 
 }
 
 export function Wordmark({ size = 24 }: { size?: number }) {
-  return <Text accessibilityRole="header" style={[type.h2, { fontSize: size, lineHeight: size * 1.2, textAlign: 'center', letterSpacing: 0.3 }]}>What’s In My Bag</Text>;
+  return <Text accessibilityRole="header" style={[type.h2, { fontSize: size, lineHeight: size * 1.2, textAlign: 'center', letterSpacing: 0.6 }]}>Chelsea</Text>;
 }
 
 export function Eyebrow({ children, color = colors.goldDeep, style }: { children: React.ReactNode; color?: string; style?: TextStyle }) {

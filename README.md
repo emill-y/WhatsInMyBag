@@ -1,32 +1,32 @@
-# What's In My Bag
+# Chelsea · What's in my bag
 
-*Everything you carry, handled.* A clickable demo on mock data (Expo + expo-router, runs on iOS, Android and web). Three demos: Travel, Makeup and Mom.
+*Everything you carry, handled.* Chelsea knows what's in every bag you carry, restocks before you run out, and lets you borrow lists from other women. Expo + expo-router app (iOS, Android, web) plus a static marketing website.
 
 ## Run locally
 ```bash
 npm install
-npm run web        # opens in the browser; use responsive mode at 390×844 for iPhone
-npm start          # Expo Go on a phone (scan the QR code)
+npm run web                 # the app with live reload, http://localhost:8081
+npm run build && npm run preview   # website + app exactly as Vercel serves them, http://localhost:3000
 ```
 
 ## Deploy to Vercel
-Import the repo in Vercel. `vercel.json` already sets the build (`npx expo export -p web`), output (`dist`) and SPA rewrites. No env vars needed.
-
-On iPhone, open the URL in Safari → Share → *Add to Home Screen* for a full-screen app feel.
+```bash
+npm i -g vercel
+vercel login
+vercel --prod
+```
+`vercel.json` sets the build (`npm run build`), the output (`dist`) and routing: `/` is the website, everything else (`/welcome`, `/home`, …) is the app.
 
 ## Photos
-Product and lifestyle photos are real photographs from [Unsplash](https://unsplash.com/license) and load straight from Unsplash by default. To bundle them with the app instead:
-```bash
-npm run photos                       # downloads to public/photos
-EXPO_PUBLIC_PHOTO_BASE=/photos npm run web
-```
-For Vercel, commit `public/photos` and set `EXPO_PUBLIC_PHOTO_BASE=/photos` in the project's environment variables.
+Real photographs from [Unsplash](https://unsplash.com/license), loaded straight from Unsplash. To bundle them instead: `npm run photos`, commit `public/photos`, and set `EXPO_PUBLIC_PHOTO_BASE=/photos`.
 
 ## Layout
 ```
-app/            screens (expo-router)
+app/            app screens (expo-router)
+website/        marketing homepage
 src/theme       colour tokens + typography
-src/data        demos (travel, makeup, mom), products, community posts, photos
-src/logic       depletion, search
-src/components  shared UI (pills, buttons, tiles, gauge, bag illustration)
+src/data        sample accounts, products, community posts, photos
+src/logic       depletion, search, notifications
+src/components  shared UI
+scripts/        build-site, preview server, photo download
 ```

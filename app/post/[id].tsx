@@ -72,7 +72,7 @@ export default function PostPage() {
         <View style={{ backgroundColor: colors.porcelain, borderRadius: radius.card, padding: 20, marginTop: 24 }}>
           <Text style={type.h3}>{missing ? `Add ${missing === post.productIds.length ? 'all ' : ''}${missing} to your ${targetName}` : `You have all of these`}</Text>
           <Text style={[type.smallStone, { marginTop: 2, marginBottom: 14 }]}>{missing ? 'They’ll arrive as wants, so you can shop or tick them off.' : 'Nicely packed.'}</Text>
-          {missing ? <PrimaryButton label="Add the whole list" onPress={() => importPost(post.id)} /> : <OutlineButton label="Open my bag" onPress={() => router.replace('/home')} />}
+          {missing ? <PrimaryButton label="Add the whole list" onPress={() => importPost(post.id)} /> : <OutlineButton label="Open my bag" onPress={() => router.navigate('/home')} />}
         </View>
 
         <SectionHeader eyebrow={`${post.productIds.length} items`} title="In her bag" />

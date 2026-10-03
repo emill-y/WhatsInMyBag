@@ -1,83 +1,116 @@
-import { useState } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Heart, Plus } from 'lucide-react-native';
 import { colors, margin, maxWidth, radius } from '../../src/theme/tokens';
-import { type } from '../../src/theme/typography';
-import { Screen, PillChip, ChipRow, Avatar, PhotoTag, Eyebrow, PrimaryButton } from '../../src/components/ui';
+import { fonts, type } from '../../src/theme/typography';
+import { PillChip, ChipRow, PhotoTag, Avatar, OutlineButton, SectionHeader } from '../../src/components/ui';
 import { Photo } from '../../src/components/Photo';
-import { useStore } from '../../src/store';
+import { FeedPage, Card } from '../../src/components/FeedPage';
 import { BagType, Post } from '../../src/data/types';
+import { useStore } from '../../src/store';
 
-const FILTERS: { key: 'all' | BagType; label: string }[] = [
-  { key: 'all', label: 'All bags' }, { key: 'travel', label: 'Travel' }, { key: 'makeup', label: 'Makeup' },
-  { key: 'mom', label: 'Mom' }, { key: 'work', label: 'Work' }, { key: 'study', label: 'Study' },
+const TYPES: { key: BagType; label: string }[] = [
+  { key: 'travel', label: 'Travel' }, { key: 'makeup', label: 'Makeup' }, { key: 'mom', label: 'Mom' }, { key: 'work', label: 'Work' }, { key: 'study', label: 'Study' },
 ];
-const ASPECTS = [3 / 4, 1, 4 / 5, 2 / 3];
+const ASPECTS = [4 / 5, 1, 3 / 4, 5 / 6, 2 / 3, 1];
 
+/** Community: people's bags as a full-screen swipe feed, or browsed by type of bag. */
 export default function Community() {
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const w = Math.min(width, maxWidth) - margin * 2;
-  const { posts, bags } = useStore();
+  const w = Math.min(width, maxWidth);
+  const [mode, setMode] = useState<'feed' | 'browse'>('feed');
   const [filter, setFilter] = useState<'all' | BagType>('all');
-  const shown = posts.filter((p) => filter === 'all' || p.bagType === filter);
-  const colW = (w - 12) / 2;
-  const cols: Post[][] = [[], []];
-  shown.forEach((p, i) => cols[i % 2].push(p));
+  const [h, setH] = useState(0);
+  const { bags, posts } = useStore();
+  const mine = new Set(bags.map((b) => b.type));
+
+  const feed = useMemo<Card[]>(() =>
+    posts.filter((p) => mine.has(p.bagType)).concat(posts.filter((p) => !mine.has(p.bagType))).map((post) => ({ kind: 'post', post })), [posts, bags]);
+
+  const colW = (w - margin * 2 - 12) / 2;
+  const sections = TYPES.filter((t) => filter === 'all' || t.key === filter)
+    .map((t) => ({ ...t, posts: posts.filter((p) => p.bagType === t.key) })).filter((s) => s.posts.length);
+
+  const toggle = (
+    <View style={{ position: 'absolute', top: insets.top + 10, alignSelf: 'center', flexDirection: 'row', backgroundColor: mode === 'feed' ? colors.veil : colors.porcelain, borderRadius: radius.pill, padding: 3 }}>
+      {(['feed', 'browse'] as const).map((m) => (
+        <Pressable key={m} accessibilityRole="tab" accessibilityState={{ selected: mode === m }} onPress={() => setMode(m)}
+          style={{ paddingHorizontal: 18, paddingVertical: 7, borderRadius: radius.pill, backgroundColor: mode === m ? colors.ink : 'transparent' }}>
+          <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: mode === m ? colors.paper : colors.ink }}>{m === 'feed' ? 'For you' : 'Browse'}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
+  if (mode === 'feed') return (
+    <View style={{ flex: 1, backgroundColor: colors.ink }} onLayout={(e) => setH(e.nativeEvent.layout.height)}>
+      {h ? (
+        <ScrollView pagingEnabled snapToInterval={h} decelerationRate="fast" showsVerticalScrollIndicator={false} style={{ width: w, alignSelf: 'center' }}>
+          {feed.map((c) => <FeedPage key={c.kind === 'post' ? c.post.id : c.product.id} card={c} height={h} width={w} />)}
+        </ScrollView>
+      ) : null}
+      {toggle}
+    </View>
+  );
 
   return (
-    <Screen>
-      <Eyebrow>Women supporting women</Eyebrow>
-      <Text accessibilityRole="header" style={[type.display, { marginTop: 4 }]}>What’s in her bag</Text>
-      <Text style={[type.secondary, { marginTop: 8 }]}>Real bags from real lives. Borrow a list in one tap, or share yours to help someone pack.</Text>
-
-      <Pressable onPress={() => router.push({ pathname: '/share', params: { bagId: bags[0]?.id } })}
-        style={{ marginTop: 20, backgroundColor: colors.porcelain, borderRadius: radius.card, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-          <Plus size={20} strokeWidth={1.5} color={colors.paper} />
+    <View style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top + 64, paddingBottom: 64 }}>
+        <View style={{ width: '100%', maxWidth, alignSelf: 'center', paddingHorizontal: margin }}>
+          <Text style={type.h1}>Community</Text>
+          <Text style={[type.secondary, { marginBottom: 12 }]}>Real bags from women like you. Borrow a list, or share yours.</Text>
+          <OutlineButton small label="+ Share your bag" onPress={() => router.push('/share')} style={{ alignSelf: 'flex-start', marginBottom: 16 }} />
+          <ChipRow>
+            <PillChip label="All bags" active={filter === 'all'} onPress={() => setFilter('all')} />
+            {TYPES.map((t) => <PillChip key={t.key} label={t.label} active={filter === t.key} onPress={() => setFilter(t.key)} />)}
+          </ChipRow>
+          {sections.map((s) => {
+            const cols: Post[][] = [[], []];
+            s.posts.forEach((p, i) => cols[i % 2].push(p));
+            return (
+              <View key={s.key}>
+                <SectionHeader eyebrow={`${s.posts.length} ${s.posts.length === 1 ? 'bag' : 'bags'}`} title={s.label} />
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  {cols.map((col, c) => (
+                    <View key={c} style={{ flex: 1, gap: 20 }}>
+                      {col.map((post, i) => <BagTile key={post.id} post={post} width={colW} aspect={ASPECTS[(i * 2 + c) % ASPECTS.length]} />)}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            );
+          })}
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={type.h3}>Share your bag</Text>
-          <Text style={type.smallStone}>Your list is ready. Add a photo and a line.</Text>
-        </View>
-      </Pressable>
-
-      <View style={{ marginTop: 20 }}>
-        <ChipRow>{FILTERS.map((f) => <PillChip key={f.key} label={f.label} active={filter === f.key} onPress={() => setFilter(f.key)} />)}</ChipRow>
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-        {cols.map((col, c) => (
-          <View key={c} style={{ flex: 1, gap: 24 }}>
-            {col.map((post, i) => <PostTile key={post.id} post={post} width={colW} aspect={ASPECTS[(i * 2 + c) % ASPECTS.length]} />)}
-          </View>
-        ))}
-      </View>
-      {!shown.length ? (
-        <View style={{ alignItems: 'center', marginTop: 32, gap: 16 }}>
-          <Text style={[type.italic, { color: colors.stone }]}>No bags here yet. Be the first to share one.</Text>
-          <PrimaryButton label="Share your bag" onPress={() => router.push('/share')} />
-        </View>
-      ) : null}
-    </Screen>
+      </ScrollView>
+      {toggle}
+    </View>
   );
 }
 
-function PostTile({ post, width, aspect }: { post: Post; width: number; aspect: number }) {
+function BagTile({ post, width, aspect }: { post: Post; width: number; aspect: number }) {
   const helped = useStore((s) => s.helpful.includes(post.id));
+  const { toggleHelpful, importPost } = useStore();
   return (
     <Pressable onPress={() => router.push(`/post/${post.id}`)} style={{ width }} accessibilityLabel={`${post.title} by ${post.author.name}`}>
-      <Photo id={post.photos[0]} width={700} label={post.title} style={{ width, aspectRatio: aspect, borderRadius: radius.photo }}>
-        <PhotoTag label={`${post.productIds.length} items`} style={{ position: 'absolute', left: 8, bottom: 8 }} />
-        {post.video ? <PhotoTag label="Video" tone="ink" style={{ position: 'absolute', right: 8, top: 8 }} /> : null}
-        {post.mine ? <PhotoTag label="Yours" tone="gold" style={{ position: 'absolute', left: 8, top: 8 }} /> : null}
+      <Photo id={post.photos[0]} width={600} label={post.title} style={{ width, aspectRatio: aspect, borderRadius: radius.photo }}>
+        <PhotoTag label={`${post.productIds.length} items`} style={{ position: 'absolute', left: 8, top: 8 }} />
+        {post.mine ? <PhotoTag label="Yours" tone="gold" style={{ position: 'absolute', left: 8, top: 34 }} /> : null}
+        <View style={{ position: 'absolute', right: 8, bottom: 8, flexDirection: 'row', gap: 6 }}>
+          <Pressable accessibilityLabel="Add the whole list" hitSlop={6} onPress={() => importPost(post.id)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.veil, alignItems: 'center', justifyContent: 'center' }}>
+            <Plus size={17} strokeWidth={1.5} color={colors.ink} />
+          </Pressable>
+          <Pressable accessibilityLabel={helped ? 'Marked helpful' : 'This helped me'} hitSlop={6} onPress={() => toggleHelpful(post.id)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.veil, alignItems: 'center', justifyContent: 'center' }}>
+            <Heart size={15} strokeWidth={1.5} color={colors.ink} fill={helped ? colors.ink : 'transparent'} />
+          </Pressable>
+        </View>
       </Photo>
-      <Text style={[type.body, { fontSize: 16, lineHeight: 21, marginTop: 8 }]} numberOfLines={3}>{post.title}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
-        <Avatar id={post.author.avatar} name={post.author.name} size={20} />
-        <Text style={[type.small, { flex: 1 }]} numberOfLines={1}>{post.author.name}</Text>
-        <Heart size={12} strokeWidth={1.5} color={colors.ink} fill={helped ? colors.ink : 'transparent'} />
-        <Text style={type.smallStone}>{post.helpful}</Text>
+      <Text style={[type.body, { fontSize: 15, lineHeight: 20, marginTop: 8 }]} numberOfLines={2}>{post.title}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+        <Avatar id={post.author.avatar} name={post.author.name} size={18} />
+        <Text style={type.smallStone} numberOfLines={1}>{post.author.name} · {post.helpful} helped</Text>
       </View>
     </Pressable>
   );

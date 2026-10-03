@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Check } from 'lucide-react-native';
 import { colors, margin, maxWidth, radius } from '../src/theme/tokens';
 import { type } from '../src/theme/typography';
@@ -9,6 +9,7 @@ import { Photo } from '../src/components/Photo';
 import { bagCover } from '../src/data/photos';
 import { BagType } from '../src/data/types';
 import { useStore } from '../src/store';
+import { enterApp, goBack } from '../src/nav';
 
 const USE_CASES: { type: BagType; label: string; line: string }[] = [
   { type: 'travel', label: 'Travel and luggage', line: 'Carry-ons, weekenders, trips' },
@@ -24,7 +25,9 @@ const field = { borderBottomWidth: 1, borderColor: colors.ink, paddingVertical: 
 export default function Onboarding() {
   const { width } = useWindowDimensions();
   const cardW = (Math.min(width, maxWidth) - margin * 2 - 12) / 2;
-  const setup = useStore((s) => s.setupFromOnboarding);
+  const { setupFromOnboarding: setup, addBags, bags } = useStore();
+  const adding = useLocalSearchParams<{ mode?: string }>().mode === 'add';
+  const owned = adding ? bags.map((b) => b.type) : [];
 
   const [step, setStep] = useState(0);
   const [types, setTypes] = useState<BagType[]>([]);
@@ -44,52 +47,58 @@ export default function Onboarding() {
 
   // One short follow-up page per chosen use case.
   const followUps = useMemo(() => USE_CASES.filter((u) => types.includes(u.type)).map((u) => u.type), [types]);
-  const total = 2 + followUps.length + 1;
+  // Adding a bag later never asks for the name again.
+  const pages: string[] = ['pick', ...(adding ? [] : ['name']), ...followUps, 'finish'];
+  const total = pages.length;
+  const current = pages[Math.min(step, total - 1)];
 
   const finish = (scan: boolean) => {
-    setup({
-      name, bagTypes: types, values: [...new Set([...values, ...diet])], skinType: skin || undefined, kidAge,
-      avoid: avoid.split(',').map((s) => s.trim()).filter(Boolean), destination: destination || undefined,
-    });
-    router.replace(scan ? '/scan' : '/home');
+    const answers = { values: [...new Set([...values, ...diet])], skinType: skin || undefined, kidAge, avoid: avoid.split(',').map((s) => s.trim()).filter(Boolean), destination: destination || undefined };
+    if (adding) {
+      addBags(types, answers);
+      if (scan) router.replace('/scan'); else goBack();
+      return;
+    }
+    setup({ name, bagTypes: types, ...answers });
+    if (scan) { enterApp(); router.push('/scan'); } else enterApp();
   };
 
   const next = () => setStep(step + 1);
   const canNext = step === 0 ? types.length > 0 : true;
 
   const page = (() => {
-    if (step === 0) return (
+    if (current === 'pick') return (
       <View>
-        <Eyebrow>Welcome</Eyebrow>
-        <Text style={[type.h1, { marginTop: 4 }]}>What brings you here?</Text>
-        <Text style={[type.secondary, { marginTop: 8, marginBottom: 24 }]}>Pick one or more. You can add bags later.</Text>
+        <Eyebrow>{adding ? 'Add a bag' : 'Welcome'}</Eyebrow>
+        <Text style={[type.h1, { marginTop: 4 }]}>{adding ? 'What else do you carry?' : 'What brings you here?'}</Text>
+        <Text style={[type.secondary, { marginTop: 8, marginBottom: 24 }]}>{adding ? 'Pick one or more. Your other bags stay as they are.' : 'Pick one or more. You can add bags later.'}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           {USE_CASES.map((u) => {
-            const on = types.includes(u.type);
+            const on = types.includes(u.type), mine = owned.includes(u.type);
             return (
-              <Pressable key={u.type} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={u.label}
-                onPress={() => toggle(types, u.type, setTypes)} style={{ width: cardW }}>
+              <Pressable key={u.type} accessibilityRole="checkbox" accessibilityState={{ checked: on, disabled: mine }} accessibilityLabel={u.label}
+                disabled={mine} onPress={() => toggle(types, u.type, setTypes)} style={{ width: cardW, opacity: mine ? 0.45 : 1 }}>
                 <Photo id={bagCover[u.type]} width={500} label={u.label} style={{ aspectRatio: 1, borderRadius: radius.photo, borderWidth: on ? 2 : 0, borderColor: colors.ink }}>
                   <View style={{ position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: 13, backgroundColor: on ? colors.ink : colors.veil, alignItems: 'center', justifyContent: 'center' }}>
                     {on ? <Check size={15} strokeWidth={2} color={colors.paper} /> : null}
                   </View>
                 </Photo>
                 <Text style={[type.h3, { marginTop: 8 }]}>{u.label}</Text>
-                <Text style={type.smallStone}>{u.line}</Text>
+                <Text style={type.smallStone}>{mine ? 'Already one of your bags' : u.line}</Text>
               </Pressable>
             );
           })}
         </View>
       </View>
     );
-    if (step === 1) return (
+    if (current === 'name') return (
       <View style={{ gap: 16 }}>
         <Text style={type.h1}>What should we call you?</Text>
         <TextInput value={name} onChangeText={setName} placeholder="Your first name" placeholderTextColor={colors.stone} autoFocus style={[type.h2, field]} />
         <Text style={type.secondary}>We’ll use it for reminders, and on anything you share with the community.</Text>
       </View>
     );
-    const t = followUps[step - 2];
+    const t = current !== 'finish' ? (current as BagType) : undefined;
     if (t) {
       const head = (title: string, sub: string) => (
         <>
@@ -152,8 +161,8 @@ export default function Onboarding() {
           {types.map((t) => <Photo key={t} id={bagCover[t]} width={400} label={t} style={{ flex: 1, aspectRatio: 3 / 4, borderRadius: radius.photo }} />)}
         </View>
         <View style={{ gap: 12 }}>
-          <PrimaryButton label="Snap your bag" onPress={() => finish(true)} />
-          <OutlineButton label="Start with the essentials" onPress={() => finish(false)} />
+          <PrimaryButton label={adding ? (types.length > 1 ? 'Add these bags' : 'Add this bag') : 'Start with the essentials'} onPress={() => finish(false)} />
+          <OutlineButton label="Snap your bag" onPress={() => finish(true)} />
         </View>
       </View>
     );
@@ -165,7 +174,7 @@ export default function Onboarding() {
         <View style={{ flexDirection: 'row', gap: 6 }}>
           {Array.from({ length: total }).map((_, i) => <View key={i} style={{ width: 20, height: 2, backgroundColor: i <= step ? colors.gold : colors.line }} />)}
         </View>
-        <TextLink label="Skip" onPress={() => finish(false)} style={{ color: colors.stone }} />
+        {adding ? <TextLink label="Cancel" onPress={goBack} style={{ color: colors.stone }} /> : <TextLink label="Skip" onPress={() => finish(false)} style={{ color: colors.stone }} />}
       </View>
       {page}
       {step < total - 1 ? (

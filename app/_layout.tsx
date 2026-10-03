@@ -21,7 +21,8 @@ export default function RootLayout() {
     };
     add('apple-mobile-web-app-capable', 'yes');
     add('apple-mobile-web-app-status-bar-style', 'default');
-    add('apple-mobile-web-app-title', 'My Bag');
+    add('apple-mobile-web-app-title', 'Chelsea');
+    document.title = 'Chelsea · What’s in my bag';
     const vp = document.querySelector('meta[name="viewport"]');
     vp?.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1');
     document.body.style.backgroundColor = colors.paper;

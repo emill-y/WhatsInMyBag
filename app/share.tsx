@@ -50,8 +50,7 @@ export default function ShareBag() {
           );
         })}
       </View>
-      <Text style={[type.smallStone, { marginTop: 8 }]}>A short video works too, once uploads arrive in the full app.</Text>
-
+      
       <SectionHeader title="A few words" />
       <TextInput value={title} onChangeText={setTitle} placeholder={`My ${bag.name.toLowerCase()}`} placeholderTextColor={colors.stone} style={[type.h2, field]} />
       <TextInput value={caption} onChangeText={setCaption} multiline placeholder="What would you tell a friend packing this bag?" placeholderTextColor={colors.stone}

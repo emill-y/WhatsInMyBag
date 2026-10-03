@@ -1,4 +1,5 @@
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { openLink } from '../nav';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, maxWidth, radius } from '../theme/tokens';
 import { type } from '../theme/typography';
@@ -23,12 +24,12 @@ export function AlertSheet() {
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
           <Photo id={p.photo} width={200} label={item.label} fallbackSize={11} style={{ width: 52, height: 52, borderRadius: radius.card }} />
           <View style={{ flex: 1 }}>
-            <Text style={type.smallStone}>What’s In My Bag · now</Text>
+            <Text style={type.smallStone}>Chelsea · now</Text>
             <Text style={[type.body, { lineHeight: 22 }]}>Your {item.label.toLowerCase()} runs out in about {Math.max(d, 1)} days.</Text>
           </View>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-          <PrimaryButton label="Reorder" style={{ flex: 1 }} onPress={() => { Linking.openURL(p.retailerUrl); showAlert(null); }} />
+          <PrimaryButton label="Reorder" style={{ flex: 1 }} onPress={() => { openLink(p.retailerUrl); showAlert(null); }} />
           <OutlineButton label="Snooze" style={{ flex: 1 }} onPress={() => { showAlert(null); flash('We’ll remind you in 3 days'); }} />
         </View>
       </Pressable>

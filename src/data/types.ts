@@ -23,7 +23,7 @@ export interface Product {
   /** Unsplash photo id of this exact kind of item */
   photo: string;
   bagTypes: BagType[];
-  retailerUrl: string; inStock: boolean; sponsored?: boolean; bagFit?: 'mini' | 'regular' | 'large';
+  retailer: 'Amazon' | 'Sephora' | 'Target'; retailerUrl: string; inStock: boolean; sponsored?: boolean; bagFit?: 'mini' | 'regular' | 'large';
   blurb?: string;
 }
 
@@ -35,6 +35,8 @@ export interface Trip {
 }
 
 export interface Alert { id: string; itemId: string; title: string; when: string; }
+
+export interface Reminder { id: string; title: string; when: string; bagId?: string; itemId?: string; on: boolean; }
 
 export interface Post {
   id: string; bagType: BagType; title: string; caption: string;
