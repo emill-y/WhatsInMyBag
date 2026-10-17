@@ -244,6 +244,19 @@ input { font: inherit; }
 .reveal > *:nth-child(10) { animation-delay: .58s; }
 @keyframes rise { to { opacity: 1; transform: none; } }
 
+.notif {
+  position: fixed; top: calc(var(--sat) + 8px); left: 8px; right: 8px; max-width: 424px; margin: 0 auto; z-index: 35;
+  display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 22px; text-align: left; width: auto;
+  background: rgba(246,246,243,0.86); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
+  border: 1px solid rgba(11,11,10,0.06); transform: translateY(calc(-100% - var(--sat) - 20px)); transition: transform .5s cubic-bezier(.2,.9,.25,1.05);
+}
+.notif.on { transform: translateY(0); }
+.notif-icon { width: 38px; height: 38px; border-radius: 9px; background: var(--ink); display: grid; place-items: center; flex: none; }
+.notif-body { flex: 1; min-width: 0; }
+.notif-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.notif-meta b { font-weight: 600; color: var(--ink); letter-spacing: .02em; }
+.notif-title { font-size: 15px; font-weight: 600; margin-top: 2px; }
+.notif-text { font-size: 14px; color: #3A3A36; margin-top: 1px; }
 .toast { position: fixed; left: 50%; bottom: calc(var(--sab) + 22px); transform: translate(-50%, 140%); background: var(--ink); color: var(--paper); padding: 12px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 30; transition: transform .35s cubic-bezier(.2,.9,.25,1); white-space: nowrap; display: flex; gap: 8px; align-items: center; }
 .toast.on { transform: translate(-50%, 0); }
 .toast i { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); }
@@ -353,6 +366,14 @@ input { font: inherit; }
   <div class="inner" id="ovInner"></div>
 </div>
 
+<button class="notif" id="notif" aria-live="polite">
+  <div class="notif-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M13.5 2.5l2.1 4.4 4.9.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8L6.5 7.6l4.9-.7z" fill="#D4F53C"/><path d="M8.6 14.2L3 20.5" stroke="#D4F53C" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+  <div class="notif-body">
+    <div class="notif-meta"><b>SPELLBOUND</b><span>now</span></div>
+    <div class="notif-title" id="notifTitle"></div>
+    <div class="notif-text">Remy has thoughts. Tap before you pay.</div>
+  </div>
+</button>
 <div class="toast" id="toast"><i></i><span id="toastText"></span></div>
 
 <script>
@@ -427,6 +448,7 @@ const CATS = {
   transport: { label: 'Transport',  budget: 120, need: 0.75 },
   health:    { label: 'Health',     budget: 80,  need: 0.90 },
   dining:    { label: 'Eating out', budget: 150, need: 0.45 },
+  delivery:  { label: 'Delivery',   budget: 60,  need: 0.25 },
   coffee:    { label: 'Coffee & treats', budget: 40, need: 0.30 },
   clothing:  { label: 'Clothing',   budget: 60,  need: 0.20 },
   fun:       { label: 'Fun',        budget: 100, need: 0.30 },
@@ -446,7 +468,8 @@ const KEYWORDS = {
   utilities: ['water','electric','bill','rent','gas bill','internet','phone bill','utility','power'],
   transport: ['gas','fuel','uber','lyft','bus','train','metro card','parking','transit','shell'],
   health: ['pharmacy','medicine','doctor','dentist','clinic','vitamin','cvs','walgreens'],
-  dining: ['sushi','pizza','burger','restaurant','dinner','lunch','taco','ramen','cafe','diner','doordash'],
+  dining: ['sushi','pizza','burger','restaurant','dinner','lunch','taco','ramen','cafe','diner'],
+  delivery: ['doordash','door dash','uber eats','ubereats','grubhub','postmates','delivery','seamless','caviar'],
   coffee: ['matcha','coffee','latte','boba','tea','starbucks','espresso','candy','snack','donut','cookie'],
   clothing: ['hoodie','shirt','jeans','dress','shoes','sneaker','jacket','clothes','clothing','sweater','zara','h&m','shein','fashion','outfit'],
   fun: ['concert','ticket','game','movie','netflix','spotify','toy','arcade','festival','skins'],
@@ -455,12 +478,13 @@ const KEYWORDS = {
 const fresh = () => {
   const now = Date.now();
   return {
-    v: 3, balance: 412.18, vibe: 74, charms: 0, streak: 0, xp: 210,
+    v: 4, balance: 412.18, vibe: 74, charms: 0, streak: 0, xp: 210,
     earmark: { from: 'Mom', amount: 275, left: 275, cat: 'utilities', label: 'water bill' },
-    spent: { groceries: 212, utilities: 0, transport: 58, health: 12, dining: 96, coffee: 29.5, clothing: 54, fun: 70 },
+    spent: { groceries: 212, utilities: 0, transport: 58, health: 12, dining: 96, delivery: 41, coffee: 29.5, clothing: 54, fun: 70 },
     history: [
       { merchant: 'Matcha Moon', item: 'Iced oat matcha', cat: 'coffee', amt: 7.25, ts: now - 1.2 * DAY, verdict: 'meh', paid: true, seed: true },
       { merchant: 'Matcha Moon', item: 'Iced oat matcha', cat: 'coffee', amt: 7.25, ts: now - 3.4 * DAY, verdict: 'meh', paid: true, seed: true },
+      { merchant: 'DoorDash', item: 'Late-night delivery', cat: 'delivery', amt: 41.00, ts: now - 2.3 * DAY, verdict: 'bad', paid: true, seed: true },
       { merchant: 'Sushi Ko', item: 'Lunch', cat: 'dining', amt: 22.10, ts: now - 4.1 * DAY, verdict: 'meh', paid: true, seed: true },
       { merchant: 'Hoodie Haus', item: 'Hoodie', cat: 'clothing', amt: 54.00, ts: now - 5.6 * DAY, verdict: 'bad', paid: true, seed: true },
     ],
@@ -469,7 +493,7 @@ const fresh = () => {
 
 let S;
 try { S = JSON.parse(localStorage.getItem('spellbound')); } catch (e) { S = null; }
-if (!S || S.v !== 3) S = fresh();
+if (!S || S.v !== 4) S = fresh();
 const save = () => { try { localStorage.setItem('spellbound', JSON.stringify(S)); } catch (e) {} };
 
 /* ---------- Spellcheck: on-device scoring ---------- */
@@ -998,6 +1022,33 @@ addEventListener('keydown', e => {
 });
 addEventListener('resize', () => overlay.classList.contains('on') && sizeCanvas());
 if (location.hash === '#reset') { history.replaceState(null, '', location.pathname); S = fresh(); save(); }
+
+// Deep link from an iOS Shortcut: #spell?m=DoorDash&a=32.40&mode=before
+// Safari won't play sound until the page is tapped, so we drop in a notification banner and cast on tap.
+let pending = null, notifT = 0;
+function fromLink() {
+  if (!location.hash.startsWith('#spell')) return;
+  const q = new URLSearchParams(location.hash.split('?')[1] || '');
+  history.replaceState(null, '', location.pathname + location.search);
+  const merchant = (q.get('m') || 'DoorDash').slice(0, 40);
+  const amt = Math.round((parseFloat(q.get('a')) || 32.40) * 100) / 100;
+  const cat = CATS[q.get('c')] ? q.get('c') : classify(merchant);
+  pending = { p: { merchant, item: q.get('i') || merchant + ' order', cat, amt }, mode: q.get('mode') === 'after' ? 'after' : 'before' };
+  $('notifTitle').textContent = (pending.mode === 'after' ? 'You just paid ' : 'Hold up · ') + merchant + ', ' + money(amt);
+  setTimeout(() => {
+    $('notif').classList.add('on');
+    try { audio(); SFX.charm(); } catch (e) {}
+    buzz([30, 60, 30]);
+  }, 450);
+  clearTimeout(notifT);
+  notifT = setTimeout(() => $('notif').classList.remove('on'), 12000);
+}
+$('notif').onclick = () => {
+  $('notif').classList.remove('on');
+  if (pending) { const { p, mode } = pending; pending = null; cast(p, mode); }
+};
+addEventListener('hashchange', fromLink);
+fromLink();
 
 render();
 })();

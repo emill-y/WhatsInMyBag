@@ -21,6 +21,22 @@ One self-contained file (`index.html`): no build and no dependencies. Fonts come
 
 "Just paid" (or the toggle in the sheet) logs a purchase that already happened and still gives instant feedback.
 
+## Pop up while you shop (iOS Shortcuts)
+A web page can't see inside other apps, so an iPhone Shortcut does the detecting and opens Spellbound with the purchase already loaded:
+
+`<spellbound url>#spell?m=DoorDash&a=32.40` (optional `&mode=after`, `&i=item name`, `&c=category`)
+
+Spellbound opens with a notification banner (*"Hold up · DoorDash, $32.40"*). Tap it and the spell is cast with the sound. Safari only allows sound after a tap, which is why there's a banner to tap.
+
+**When DoorDash opens:** Shortcuts → Automation → + → App → DoorDash, *Is Opened*, *Run Immediately* → actions:
+1. *Wait* 8 seconds (time to reach checkout)
+2. *Show Notification* "Remy is watching this order 👀" (plays the system sound)
+3. *Open URLs* → the link above
+
+**When you tap Apple Pay in a store:** Automation → + → Transaction → your card → *Run Immediately* → *Open URLs* with `#spell?m=` + the **Merchant** variable + `&a=` + the **Amount** variable + `&mode=after`.
+
+Links open in Safari, which keeps its own Spellbound state separate from the Home Screen copy, so film these in Safari.
+
 ## Filming shortcuts
 - **Reset:** long-press the `JK` avatar, tap *Reset* at the bottom, or open the page with `#reset`.
 - **Keyboard (desktop screen recordings):** `1`–`8` casts a preset before paying, `Shift`+`1`–`8` logs it as already paid, `Esc` takes the main button, `r` resets.
