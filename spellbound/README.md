@@ -37,6 +37,23 @@ Spellbound opens with a notification banner (*"Hold up · DoorDash, $32.40"*). T
 
 Links open in Safari, which keeps its own Spellbound state separate from the Home Screen copy, so film these in Safari.
 
+## Apple Pay → sad sound → Remy (the matcha shot)
+`sounds/sad.wav` and `sounds/happy.wav` are the app's verdict sounds as audio files (`node spellbound/sounds/make-sounds.mjs` rebuilds them).
+
+Make a shortcut called **Spellbound matcha**:
+1. *Show Notification*: "Bad spell. 3rd matcha this week. Remy is sad."
+2. *Get Contents of URL*: `<spellbound folder url>/sounds/sad.wav`
+3. *Play Sound*: Contents of URL
+4. *Open URLs*: `<spellbound url>#spell?m=Matcha%20Moon&i=Iced%20oat%20matcha&a=7.25&mode=after&v=bad&auto=1`
+
+`auto=1` skips the in-app banner and plays the cast and reaction straight away. `v=bad` pins the verdict so every take is sad, whatever you tapped before.
+
+Run it from:
+- **A real Apple Pay tap:** Automation → + → Transaction → your card → Run Immediately → run *Spellbound matcha*. It fires when the payment goes through at the reader.
+- **Back Tap (filming at home):** Settings → Accessibility → Touch → Back Tap → Double Tap → *Spellbound matcha*. Double-click the side button for Apple Pay, then double-tap the back of the phone.
+
+A notification sent by Shortcuts opens the Shortcuts app when you tap it, not a webpage, so the shortcut opens Spellbound by itself right after the sound.
+
 ## Filming shortcuts
 - **Reset:** long-press the `JK` avatar, tap *Reset* at the bottom, or open the page with `#reset`.
 - **Keyboard (desktop screen recordings):** `1`–`8` casts a preset before paying, `Shift`+`1`–`8` logs it as already paid, `Esc` takes the main button, `r` resets.

@@ -601,7 +601,7 @@ function audio() {
     const wet = AC.createGain(); wet.gain.value = 0.35;
     verb.connect(fb); fb.connect(verb); verb.connect(wet); wet.connect(master);
   }
-  if (AC.state === 'suspended') AC.resume();
+  if (AC.state === 'suspended') AC.resume().catch(() => {});
   return AC;
 }
 function tone({ f, t = 0, d = 0.3, type = 'sine', g = 0.2, to = null, wet = false, attack = 0.008 }) {
@@ -902,6 +902,7 @@ function verdict(p, m) {
   fxMode = null; parts = [];
   // score against the state just before this purchase
   const r = m === 'after' ? scoreAfter(p) : spellcheck(p, false);
+  if (p.force && r.verdict !== p.force) forceVerdict(r, p);
   const t0 = performance.now();
   for (let i = 0; i < 500; i++) spellcheck(p, m === 'after');
   r.ms = Math.max((performance.now() - t0) / 500, 0.004);
@@ -959,6 +960,23 @@ function scoreAfter(p) {
   Object.assign(em, emNow);
   p.ref.verdict = r.verdict;
   return r;
+}
+
+// Demo links can pin the outcome (#spell?…&v=bad) so a take never depends on earlier taps.
+function forceVerdict(r, p) {
+  const v = p.force, sign = v === 'bad' ? '−' : '+';
+  r.verdict = v;
+  r.score = v === 'bad' ? Math.min(r.score, 0.18) : v === 'good' ? Math.max(r.score, 0.86) : 0.52;
+  r.reasons = r.reasons.filter(x => x.s === sign);
+  r.usedTreat = false;
+  if (v === 'bad') {
+    const n = Math.max(3, S.history.filter(h => h.paid && h.cat === p.cat && Date.now() - h.ts < 7 * DAY).length + (p.ref ? 0 : 1));
+    r.headline = 'Bad spell.';
+    r.msg = p.cat === 'coffee' ? `${n === 3 ? '3rd' : n + 'th'} drink this week. Remy is so sad.` : 'Future you would rather keep this.';
+    if (!r.reasons.length) r.reasons = [{ t: 'Nice-to-have', s: '−' }];
+  } else if (v === 'good') { r.headline = 'Good spell.'; r.msg = 'Fits your budget and your week.'; }
+  else { r.headline = 'Hmm. Meh.'; r.msg = 'Not great, not terrible.'; }
+  if (p.ref) p.ref.verdict = v;
 }
 
 function settle(p, r, paid) {
@@ -1033,7 +1051,10 @@ function fromLink() {
   const merchant = (q.get('m') || 'DoorDash').slice(0, 40);
   const amt = Math.round((parseFloat(q.get('a')) || 32.40) * 100) / 100;
   const cat = CATS[q.get('c')] ? q.get('c') : classify(merchant);
-  pending = { p: { merchant, item: q.get('i') || merchant + ' order', cat, amt }, mode: q.get('mode') === 'after' ? 'after' : 'before' };
+  const force = ['good', 'meh', 'bad'].includes(q.get('v')) ? q.get('v') : null;
+  pending = { p: { merchant, item: q.get('i') || merchant + ' order', cat, amt, force }, mode: q.get('mode') === 'after' ? 'after' : 'before' };
+  // auto=1: opened from a notification, so skip our own banner and go straight to the reaction
+  if (q.get('auto')) { const { p, mode } = pending; pending = null; setTimeout(() => cast(p, mode), 350); return; }
   $('notifTitle').textContent = (pending.mode === 'after' ? 'You just paid ' : 'Hold up · ') + merchant + ', ' + money(amt);
   setTimeout(() => {
     $('notif').classList.add('on');
