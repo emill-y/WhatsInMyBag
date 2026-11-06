@@ -8,7 +8,7 @@ Three parts, one Figma file:
 3. **Workflow**: the system diagram in FigJam.
 
 Base URL for every link below:
-`https://raw.githack.com/emill-y/WhatsInMyBag/67d55a528d7f8cef5e9106c2708a1709df3d3ce6/spellbound/index.html`
+`https://raw.githack.com/emill-y/WhatsInMyBag/9fb827615f8ba68c6de474b8656a0e2fd71189c3/spellbound/index.html`
 
 ---
 
