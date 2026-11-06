@@ -1,12 +1,14 @@
 # Spellbound in Figma
 
+Finished screens and a presentation board are in `mockups/` (`spellbound-board.png`). Drop them into Figma as a visual reference, or import live layers as below.
+
 Three parts, one Figma file:
 1. **Screens**: the real app imported as editable layers (most accurate).
 2. **Prototype**: screens wired together with Smart Animate.
 3. **Workflow**: the system diagram in FigJam.
 
 Base URL for every link below:
-`https://raw.githack.com/emill-y/WhatsInMyBag/97da2bf728dd4b6c5c0be84599144575026e6af2/spellbound/index.html`
+`https://raw.githack.com/emill-y/WhatsInMyBag/67d55a528d7f8cef5e9106c2708a1709df3d3ce6/spellbound/index.html`
 
 ---
 
@@ -27,7 +29,7 @@ Base URL for every link below:
 | 07 Good · on purpose | `#shot=purpose` | Water bill: "Exactly what Mom sent it for" |
 | 08 Bad spell | `#shot=bad` | 3rd matcha this week, smoke, Remy sad |
 | 09 Bad · earmark | `#shot=earmark` | $275 clothes cart: "That's Mom's money for the water bill" |
-| 10 Meh · treat unlocked | `#shot=treat` | Charms earned make a matcha okay |
+| 10 Earned it | `#shot=treat` | Charms earned make a matcha okay |
 | 11 Meh | `#shot=meh` | Sushi dinner, neutral |
 | 12 Just paid | `#shot=paid` | Apple Pay matcha, after the fact |
 
@@ -82,12 +84,12 @@ STYLE: minimal fintech, in the style of Ramp. Off-white background #F4F3EE, whit
 MASCOT: "Remy", a cute, round, flat-vector gecko: lime body #C8EE2A, darker lime spots and limbs #9DC40F, pale belly #EAFBA4, big black glossy eyes on top of the head, curled tail. Five moods: happy (smile), joy (^ ^ eyes, open grin, hopping), meh (half-closed eyes, flat mouth), sad (worried brows, frown, colour fades to dusty olive #A3AD80), cry (sad + blue tears).
 
 SCREENS:
-1. Home: header "Spellbound" with a small star-wand logo and "Ramp Family". Black rounded card (24px radius) with Remy in the middle, name "Remy" in serif, "Lvl 3" lime pill, and three stats: Vibe 74 (lime progress bar), Charms 0, Streak 0. Below: white card "Available to spend $412.18" (cents in grey) and a row "Mom sent you money · For the water bill · set aside · $275" with a lime water-drop icon. Buttons: black "Cast before you pay" with a lime wand icon, and white "Just paid". Then "Budgets this month" rows (Groceries $188 of $400 left, Bills, Transport, Eating out, Delivery, Coffee & treats, Clothing, Fun) with thin progress bars, and "Recent spells" rows with a coloured dot for good/meh/bad.
+1. Home: header "Spellbound" with a small star-wand logo and "Ramp Family". Black rounded card (24px radius) with Remy in the middle, name "Remy" in serif, "Lvl 3" lime pill, and three stats: Vibe 74 (lime progress bar), Charms 0, Streak 0. Below: white card "Available to spend $412.18" (cents in grey) and a row "Mom sent you money · For the water bill · set aside · $275" with a lime water-drop icon. One full-width black button "Cast before you pay" with a lime wand icon, and under it a quiet text link "Already paid? Log it". Budgets show the 4 most at-risk categories plus "Show all 9"; rows use thin line icons per category, not letters. Then "Budgets this month" rows (Groceries $188 of $400 left, Bills, Transport, Eating out, Delivery, Coffee & treats, Clothing, Fun) with thin progress bars, and "Recent spells" rows with a coloured dot for good/meh/bad.
 2. Choose purchase: bottom sheet, segmented control "Before I pay | I just paid", transaction-style rows (Weekly groceries $64.20, Water bill $275, Iced oat matcha $7.25, Another hoodie $68, Cart · 6 clothing items $275, Gas $42.10, Dinner with friends $38.40, Concert tickets $140), plus merchant and amount inputs and a "Cast spell" button.
 3. Casting: full black screen, a star-shaped wand with a credit card inside the star, waving, a thin pulsing ring, lime and white sparkles, serif italic "Casting…", and small grey steps text "Checking your budgets".
-4. Good spell: full lime screen. Top row "Before you pay" and a black pill "Spellcheck 96". "Weekly groceries · Greenleaf Market", "$64.20" huge. Remy in joy mood, black and white four-point sparkles all around. Serif italic "Good spell." and "Feeding future you. Remy approves." A score meter (Bad ← → Good) with "Scored on-device in 24 µs", chips "+ Essential · groceries", "+ $124 left in groceries", and a black "Pay $64.20" button.
-5. Meh: off-white screen, Remy in meh mood, "Hmm. Meh.", "Treat unlocked — you earned this one with good spells.", chips, buttons "Pay $7.25" and "Skip it".
-6. Bad spell: full black screen with soft grey smoke clouds, Remy sad and wilted grey-green, "Bad spell.", "That's Mom's money for the water bill.", chips "− Uses $138 of Mom's water bill money", "− Over clothing budget by $269", buttons lime "Skip it · +1 charm" and outlined "Pay anyway".
+4. Good spell: full lime screen. Small uppercase row "BEFORE YOU PAY" left, "✦ SPELLCHECK" right. "Weekly groceries · Greenleaf Market" and "$64.20" (36px). Remy in joy mood fills the middle, with black and white four-point sparkles in a ring around him, never over text. Serif italic "Good spell." (56px) and "Feeding future you. Remy approves." Then one rounded "Why" card: "Why" left, "96/100" right; a track split into three zones Bad 40% / Meh 26% / Good 34% with the verdict's zone filled and a round knob at the score; reasons as a list with circled + or − icons ("Essential · groceries", "$124 left in groceries"), only the ones that agree with the verdict; caption "Scored on your phone in 24 µs". Black "Pay $64.20" button directly under the card.
+5. Meh: off-white screen, Remy in meh mood (half-closed eyes), the same layout with a white Why card. Variant "Earned it." + "Treat unlocked — you earned this one with good spells." when charms make a treat okay; plain "Hmm. Meh." otherwise. Buttons "Pay $7.25" (black) and "Skip it" (outline).
+6. Bad spell: full black screen with soft, blurred grey smoke around Remy, who is wilted grey-green with worried brows (raised in the middle, not angry) and tears. "Bad spell.", "That’s Mom’s money for the water bill." Dark Why card with "1/100", knob in the Bad zone, reasons "− Uses $138 of Mom’s water bill money", "− Over clothing budget by $269". Buttons lime "Skip it · +1 charm" and outlined "Pay anyway".
 7. iOS-style notification banner at the top of the home screen: "SPELLBOUND · now / Hold up · DoorDash, $32.40 / Remy has thoughts. Tap before you pay."
 
 INTERACTIONS: Cast button opens the sheet; tapping a row plays Casting for 1.1s, then shows the verdict; Skip/Pay return home with Vibe, Charms and Streak updated and Remy reacting; tapping the notification goes to Casting.
