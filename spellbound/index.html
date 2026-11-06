@@ -18,7 +18,7 @@
   --paper: #FFFFFF;
   --bg: #F4F3EE;
   --line: #E4E2DA;
-  --muted: #74736C;
+  --muted: #686760;
   --lime: #D4F53C;
   --lime-deep: #A9CC12;
   --lime-soft: #EEFBB8;
@@ -118,7 +118,9 @@ input { font: inherit; }
 .earmark.broken .earmark-amt { text-decoration: line-through; color: var(--muted); }
 
 /* actions */
-.actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 12px; }
+.actions { display: grid; gap: 4px; margin-top: 12px; }
+.link-btn { height: 40px; font-size: 14px; font-weight: 500; color: var(--muted); }
+.link-btn b { color: var(--ink); font-weight: 600; }
 .btn { height: 56px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-weight: 600; font-size: 16px; letter-spacing: -0.01em; transition: transform .12s; }
 .btn:active { transform: scale(.97); }
 .btn.primary { background: var(--ink); color: var(--paper); }
@@ -136,7 +138,9 @@ input { font: inherit; }
 .list { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
 .row { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-top: 1px solid var(--line); }
 .row:first-child { border-top: 0; }
-.row-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--bg); display: grid; place-items: center; font-weight: 600; font-size: 13px; flex: none; }
+.row-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--bg); display: grid; place-items: center; flex: none; }
+.row-icon svg { width: 18px; height: 18px; }
+.more { display: block; width: 100%; padding: 12px; font-size: 13px; font-weight: 600; border-top: 1px solid var(--line); text-align: center; }
 .row-main { flex: 1; min-width: 0; }
 .row-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -170,7 +174,9 @@ input { font: inherit; }
   background: var(--bg); border-radius: 24px 24px 0 0; padding: 10px 16px calc(var(--sab) + 18px);
   transform: translateY(105%); transition: transform .38s cubic-bezier(.2,.9,.25,1); max-height: 88dvh; overflow-y: auto;
 }
+.sheet:not(.on) { visibility: hidden; transition: transform .38s cubic-bezier(.2,.9,.25,1), visibility 0s .38s; }
 .sheet.on { transform: translateY(0); }
+.sheet .row { padding: 11px 14px; }
 .grab { width: 38px; height: 5px; border-radius: 9px; background: #CFCDC5; margin: 0 auto 14px; }
 .sheet h3 { margin: 0 2px 12px; font-size: 22px; letter-spacing: -0.02em; font-weight: 600; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; background: #E8E6DF; border-radius: 999px; padding: 4px; margin-bottom: 14px; }
@@ -178,10 +184,13 @@ input { font: inherit; }
 .seg button.on { background: var(--paper); color: var(--ink); }
 .row.tap { cursor: pointer; }
 .row.tap:active { background: var(--bg); }
-.custom { display: grid; grid-template-columns: 1fr 110px; gap: 8px; margin-top: 12px; }
+.custom { display: grid; grid-template-columns: 1fr 96px 52px; gap: 8px; margin-top: 12px; }
+.cast-go { width: 52px; height: 52px; border-radius: 50%; background: var(--ink); color: var(--lime); display: grid; place-items: center; }
+.cast-go:active { transform: scale(.94); }
 .field { height: 52px; border-radius: 14px; border: 1px solid var(--line); background: var(--paper); padding: 0 14px; font-size: 16px; outline: none; width: 100%; }
 .field:focus { border-color: var(--ink); }
-.hint { font-size: 12px; color: var(--muted); margin: 8px 2px 0; min-height: 16px; }
+.hint { font-size: 12px; color: var(--muted); margin: 8px 2px 0; }
+.hint:empty { display: none; }
 
 /* casting + verdict overlay */
 .overlay { position: fixed; inset: 0; z-index: 40; display: none; flex-direction: column; overflow: hidden; }
@@ -200,37 +209,46 @@ input { font: inherit; }
 .wand .star { transform-origin: 122px 72px; animation: twinkle 1.1s ease-in-out infinite; }
 @keyframes wave { 0%,100% { transform: rotate(-10deg); } 50% { transform: rotate(12deg); } }
 @keyframes twinkle { 0%,100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.08) rotate(8deg); } }
-.cast-ring { position: absolute; width: 260px; height: 260px; border-radius: 50%; border: 1px solid rgba(212,245,60,0.35); animation: ring 1.1s ease-out infinite; }
+.cast-art { position: relative; width: 240px; height: 240px; display: grid; place-items: center; }
+.cast-art .wand { position: relative; z-index: 1; }
+.cast-ring { position: absolute; inset: 0; margin: auto; width: 240px; height: 240px; border-radius: 50%; border: 1px solid rgba(212,245,60,0.35); animation: ring 1.1s ease-out infinite; }
 @keyframes ring { from { transform: scale(.5); opacity: 1; } to { transform: scale(1.4); opacity: 0; } }
 .cast-title { font-size: 40px; margin-top: 26px; line-height: 1; }
 .cast-sub { font-size: 14px; color: #A9A9A2; margin-top: 10px; }
 .cast-steps { margin-top: 22px; font-size: 12px; color: #8F8F88; height: 16px; font-feature-settings: "tnum" 1; }
 
-.v-top { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; }
-.v-top .pill { height: 26px; }
-.overlay[data-v="good"] .v-top .pill { background: var(--ink); color: var(--lime); }
-.overlay[data-v="meh"] .v-top .pill { background: var(--paper); border: 1px solid var(--line); }
-.overlay[data-v="bad"] .v-top .pill { background: rgba(255,255,255,0.1); }
-.v-merchant { margin-top: 22px; font-size: 15px; font-weight: 500; opacity: .75; }
-.v-amount { font-size: 46px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; }
-.v-pet { display: grid; place-items: center; height: 200px; margin: 4px 0 0; }
-.v-pet .gecko { width: 200px; height: 200px; }
-.v-head { font-size: 58px; line-height: .95; letter-spacing: -0.01em; }
-.v-msg { font-size: 16px; line-height: 1.4; margin-top: 10px; max-width: 34ch; }
-.v-score { margin-top: 18px; }
-.v-score-row { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; opacity: .8; }
-.v-meter { position: relative; height: 8px; border-radius: 99px; margin-top: 8px; background: rgba(11,11,10,0.12); }
-.overlay[data-v="bad"] .v-meter { background: rgba(255,255,255,0.14); }
-.v-meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: currentColor; width: 0; transition: width .9s cubic-bezier(.2,.8,.2,1) .2s; }
-.v-meter b { position: absolute; top: -3px; width: 2px; height: 14px; background: currentColor; opacity: .25; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
-.chip { font-size: 12px; font-weight: 600; padding: 7px 11px; border-radius: 999px; display: inline-flex; gap: 6px; align-items: center; }
-.overlay[data-v="good"] .chip { background: rgba(11,11,10,0.08); }
-.overlay[data-v="meh"] .chip { background: var(--paper); border: 1px solid var(--line); }
-.overlay[data-v="bad"] .chip { background: rgba(255,255,255,0.1); }
-.chip .s { font-weight: 700; }
-.v-parent { font-size: 12px; margin-top: 14px; opacity: .7; display: flex; align-items: center; gap: 6px; }
-.v-actions { margin-top: auto; padding-top: 18px; display: grid; gap: 8px; }
+.v-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.v-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; opacity: .7; }
+.v-top span:last-child { display: inline-flex; gap: 6px; align-items: center; }
+.v-merchant { margin-top: 18px; font-size: 15px; font-weight: 500; opacity: .72; }
+.v-amount { font-size: 36px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.1; margin-top: 2px; }
+.v-pet { position: relative; flex: 1; min-height: 150px; display: grid; place-items: center; }
+.v-pet .gecko { position: relative; z-index: 1; width: 100%; height: 100%; max-width: 230px; max-height: 230px; }
+.v-pet .decor { position: absolute; left: 50%; top: 50%; width: 360px; height: 300px; transform: translate(-50%, -50%); pointer-events: none; overflow: visible; }
+.v-head { font-size: 56px; line-height: .95; letter-spacing: -0.01em; }
+.v-msg { font-size: 16px; line-height: 1.4; margin-top: 8px; max-width: 32ch; }
+.v-why { margin-top: 18px; border-radius: 16px; padding: 14px 14px 12px; }
+.overlay[data-v="good"] .v-why { background: rgba(11,11,10,0.06); }
+.overlay[data-v="meh"] .v-why { background: var(--paper); border: 1px solid var(--line); }
+.overlay[data-v="bad"] .v-why { background: rgba(255,255,255,0.06); }
+.v-why-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; font-weight: 600; }
+.v-why-top b { font-size: 22px; letter-spacing: -0.02em; }
+.v-why-top b small { font-size: 12px; font-weight: 500; opacity: .55; margin-left: 2px; }
+.v-track { position: relative; display: flex; gap: 3px; margin-top: 10px; }
+.v-track span { height: 6px; border-radius: 99px; background: currentColor; opacity: .14; }
+.v-track span.on { opacity: 1; }
+.v-track i { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; transform: translate(-50%, -50%); background: currentColor; transition: left .9s cubic-bezier(.2,.8,.2,1) .25s; }
+.overlay[data-v="good"] .v-track i { box-shadow: 0 0 0 3px #CCEB3A; }
+.overlay[data-v="meh"] .v-track i { box-shadow: 0 0 0 3px var(--paper); }
+.overlay[data-v="bad"] .v-track i { box-shadow: 0 0 0 3px #1A1A18; }
+.v-zones { display: flex; gap: 3px; margin-top: 6px; font-size: 11px; font-weight: 600; opacity: .55; }
+.v-reasons { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 7px; }
+.v-reasons li { display: flex; gap: 9px; align-items: center; font-size: 14px; line-height: 1.3; }
+.v-reasons li::before { flex: none; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; font-size: 12px; font-weight: 700; line-height: 1; }
+.v-reasons li.up::before { content: "+"; }
+.v-reasons li.down::before { content: "−"; }
+.v-foot { margin-top: 10px; font-size: 11px; opacity: .5; }
+.v-actions { padding-top: 14px; display: grid; gap: 8px; }
 .v-actions.two { grid-template-columns: 1fr 1fr; }
 .overlay[data-v="good"] .btn.go { background: var(--ink); color: var(--lime); }
 .overlay[data-v="meh"] .btn.go { background: var(--ink); color: var(--paper); }
@@ -247,7 +265,7 @@ input { font: inherit; }
 .notif {
   position: fixed; top: calc(var(--sat) + 8px); left: 8px; right: 8px; max-width: 424px; margin: 0 auto; z-index: 35;
   display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 22px; text-align: left; width: auto;
-  background: rgba(246,246,243,0.86); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
+  background: rgba(246,246,243,0.97); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
   border: 1px solid rgba(11,11,10,0.06); transform: translateY(calc(-100% - var(--sat) - 20px)); transition: transform .5s cubic-bezier(.2,.9,.25,1.05);
 }
 .notif.on { transform: translateY(0); }
@@ -258,6 +276,7 @@ input { font: inherit; }
 .notif-title { font-size: 15px; font-weight: 600; margin-top: 2px; }
 .notif-text { font-size: 14px; color: #3A3A36; margin-top: 1px; }
 .toast { position: fixed; left: 50%; bottom: calc(var(--sab) + 22px); transform: translate(-50%, 140%); background: var(--ink); color: var(--paper); padding: 12px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 30; transition: transform .35s cubic-bezier(.2,.9,.25,1); white-space: nowrap; display: flex; gap: 8px; align-items: center; }
+.toast:not(.on) { visibility: hidden; transition: transform .35s cubic-bezier(.2,.9,.25,1), visibility 0s .35s; }
 .toast.on { transform: translate(-50%, 0); }
 .toast i { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); }
 
@@ -329,7 +348,7 @@ input { font: inherit; }
       <svg class="wand-mini" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M14 2.5l2 4.2 4.6.7-3.3 3.2.8 4.6-4.1-2.2-4.1 2.2.8-4.6L7.4 7.4l4.6-.7z" fill="currentColor"/><path d="M8.8 14.2L3 20.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
       Cast before you pay
     </button>
-    <button class="btn secondary" id="logBtn" aria-label="Log a purchase you made">Just paid</button>
+    <button class="link-btn" id="logBtn">Already paid? <b>Log it</b></button>
   </div>
 
   <div class="section-title"><h2>Budgets this month</h2><span id="budgetMeta"></span></div>
@@ -360,9 +379,9 @@ input { font: inherit; }
   <div class="custom">
     <input class="field" id="cMerchant" placeholder="Merchant or item" autocomplete="off">
     <input class="field" id="cAmount" placeholder="$0.00" inputmode="decimal" autocomplete="off">
+    <button class="cast-go" id="cCast" aria-label="Cast spell"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M14 2.5l2 4.2 4.6.7-3.3 3.2.8 4.6-4.1-2.2-4.1 2.2.8-4.6L7.4 7.4l4.6-.7z" fill="currentColor"/><path d="M8.8 14.2L3 20.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
   </div>
   <div class="hint" id="cHint"></div>
-  <button class="btn primary block" id="cCast" style="margin-top:10px">Cast spell</button>
 </div>
 
 <!-- cast + verdict -->
@@ -423,7 +442,7 @@ const GECKO = `
     </g>
     <!-- worried brows -->
     <g class="part" data-show="sad cry" fill="none" stroke="#0B0B0A" stroke-width="5" stroke-linecap="round">
-      <path d="M46 36 L82 44"/><path d="M174 36 L138 44"/>
+      <path d="M50 46 Q64 42 82 34"/><path d="M170 46 Q156 42 138 34"/>
     </g>
     <!-- mouths -->
     <path class="part" data-show="happy" d="M84 112 Q110 132 136 112" fill="none" stroke="#0B0B0A" stroke-width="5" stroke-linecap="round"/>
@@ -562,7 +581,7 @@ function spellcheck(p, alreadyPaid) {
   const ord = n === 2 ? '2nd' : n === 3 ? '3rd' : n + 'th';
   const reasons = [];
   if (x.purpose) reasons.push({ k: 'purpose', t: `What ${S.earmark.from} sent it for`, s: '+' });
-  if (x.earmark) reasons.push({ k: 'earmark', t: `Uses ${money(Math.min(p.amt - Math.max(free, 0), S.earmark.left), false)} of ${S.earmark.from}'s ${S.earmark.label} money`, s: '−' });
+  if (x.earmark) reasons.push({ k: 'earmark', t: `Uses ${money(Math.min(p.amt - Math.max(free, 0), S.earmark.left), false)} of ${S.earmark.from}’s ${S.earmark.label} money`, s: '−' });
   if (c.need >= 0.75) reasons.push({ k: 'need', t: `Essential · ${c.label.toLowerCase()}`, s: '+' });
   else reasons.push({ k: 'need', t: `Nice-to-have · ${c.label.toLowerCase()}`, s: '−' });
   if (left - p.amt < 0) reasons.push({ k: 'fit', t: `Over ${c.label.toLowerCase()} budget by ${money(p.amt - Math.max(left, 0), false)}`, s: '−' });
@@ -579,12 +598,12 @@ function spellcheck(p, alreadyPaid) {
       : c.need >= 0.75 ? 'Feeding future you. Remy approves.'
       : 'Fits your budget and your week. Enjoy it.';
   } else if (verdict === 'meh') {
-    headline = 'Hmm. Meh.';
+    headline = x.treat ? 'Earned it.' : 'Hmm. Meh.';
     msg = x.treat ? 'Treat unlocked — you earned this one with good spells.'
       : 'Not great, not terrible. Maybe sleep on it?';
   } else {
     headline = 'Bad spell.';
-    msg = x.earmark ? `That's ${S.earmark.from}'s money for the ${S.earmark.label}.`
+    msg = x.earmark ? `That’s ${S.earmark.from}’s money for the ${S.earmark.label}.`
       : x.freq > 0.3 ? `${ord} ${p.cat === 'coffee' ? 'matcha' : 'one'} this week. Remy is worried.`
       : left - p.amt < 0 ? `This blows your ${c.label.toLowerCase()} budget.`
       : 'Future you would rather keep this.';
@@ -763,6 +782,7 @@ function geckoColour(v) {
 }
 function setMood(el, m) { el.dataset.mood = ''; void el.getBoundingClientRect(); el.dataset.mood = m; }
 
+let showAllBudgets = false;
 function render() {
   const mood = moodFor(S.vibe);
   geckoColour(S.vibe);
@@ -783,19 +803,21 @@ function render() {
     : `For the ${em.label} · set aside`;
   if (em.paid) $('earmarkAmt').textContent = 'Paid';
 
-  $('budgets').innerHTML = Object.entries(CATS).map(([k, c]) => {
+  const cats = Object.entries(CATS).sort(([a, ca], [b, cb]) => S.spent[b] / cb.budget - S.spent[a] / ca.budget);
+  $('budgets').innerHTML = cats.slice(0, showAllBudgets ? cats.length : 4).map(([k, c]) => {
     const sp = S.spent[k], pct = Math.min(100, sp / c.budget * 100), over = sp > c.budget;
     return `<div class="row"><div class="row-main"><div class="row-title">${c.label}</div>
       <div class="mini-bar ${over ? 'over' : ''}"><i style="width:${pct}%"></i></div></div>
       <div class="row-end">${money(Math.max(c.budget - sp, 0), false)}<small>${over ? 'over by ' + money(sp - c.budget, false) : 'of ' + money(c.budget, false) + ' left'}</small></div></div>`;
-  }).join('');
+  }).join('') + `<button class="more" id="moreBudgets">${showAllBudgets ? 'Show less' : 'Show all ' + cats.length}</button>`;
+  $('moreBudgets').onclick = () => { showAllBudgets = !showAllBudgets; render(); };
   const totalLeft = Object.entries(CATS).reduce((n, [k, c]) => n + Math.max(c.budget - S.spent[k], 0), 0);
   $('budgetMeta').textContent = money(totalLeft, false) + ' left';
 
   const hist = S.history.slice(0, 8);
-  $('histMeta').textContent = S.history.filter(h => !h.seed).length + ' cast';
+  $('histMeta').textContent = 'Last 7 days';
   $('history').innerHTML = hist.length ? hist.map(h => `
-    <div class="row"><div class="row-icon">${h.merchant[0]}</div>
+    <div class="row"><div class="row-icon">${icon(h.cat)}</div>
       <div class="row-main"><div class="row-title">${h.item}</div>
       <div class="row-sub"><span class="dot ${h.verdict}"></span>${h.paid ? h.merchant : 'Skipped · ' + h.merchant} · ${ago(h.ts)}</div></div>
       <div class="row-end" style="${h.paid ? '' : 'text-decoration:line-through;color:var(--muted)'}">${money(h.amt)}<small>${h.verdict === 'good' ? 'Good' : h.verdict === 'bad' ? 'Bad' : 'Meh'}</small></div></div>`).join('')
@@ -812,13 +834,26 @@ function ago(ts) {
   return Math.round(m / 1440) + 'd ago';
 }
 
+const ICON_PATHS = {
+  groceries: 'M4 8h16l-1.5 11h-13zM8 8l3-5M16 8l-3-5',
+  utilities: 'M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z',
+  transport: 'M5 16V11l2-5h10l2 5v5M5 16h14M7.5 19.5v-3.5M16.5 19.5v-3.5M4 11h16',
+  health: 'M12 5v14M5 12h14',
+  dining: 'M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 2-2 6 0 8v10',
+  delivery: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2',
+  coffee: 'M6 8h10v6a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4zM16 10h1.5a2.5 2.5 0 0 1 0 5H16M9 3v2M12 3v2',
+  clothing: 'M9 4l-5 3 2 4 2-1v10h8V10l2 1 2-4-5-3a3 3 0 0 1-6 0z',
+  fun: 'M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4zM14 7v10',
+};
+const icon = cat => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICON_PATHS[cat] || ICON_PATHS.fun}"/></svg>`;
+
 /* ---------- sheet ---------- */
 let mode = 'before';
 function openSheet(m) {
   audio(); SFX.tap();
   setMode(m);
   $('presets').innerHTML = PRESETS.map((p, i) => `
-    <div class="row tap" data-i="${i}"><div class="row-icon">${p.merchant[0]}</div>
+    <div class="row tap" data-i="${i}"><div class="row-icon">${icon(p.cat)}</div>
       <div class="row-main"><div class="row-title">${p.item}</div><div class="row-sub">${p.merchant} · ${CATS[p.cat].label}</div></div>
       <div class="row-end">${money(p.amt)}</div></div>`).join('');
   $('scrim').classList.add('on'); $('sheet').classList.add('on');
@@ -829,7 +864,7 @@ function setMode(m) {
   $('segBefore').classList.toggle('on', m === 'before');
   $('segAfter').classList.toggle('on', m === 'after');
   $('sheetTitle').textContent = m === 'before' ? 'What are you about to buy?' : 'What did you just buy?';
-  $('cCast').textContent = m === 'before' ? 'Cast spell' : 'Log & cast';
+  $('cCast').setAttribute('aria-label', m === 'before' ? 'Cast spell' : 'Log and cast');
 }
 $('castBtn').onclick = () => openSheet('before');
 $('logBtn').onclick = () => openSheet('after');
@@ -879,7 +914,7 @@ function cast(p, m) {
   overlay.classList.add('on');
   sizeCanvas();
   $('ovInner').innerHTML = `<div class="cast-view">
-    <div class="cast-ring"></div>${WAND}
+    <div class="cast-art"><div class="cast-ring"></div><div class="cast-ring" style="animation-delay:.55s"></div>${WAND}</div>
     <div class="cast-title serif"><i>Casting…</i></div>
     <div class="cast-sub">${p.item} · ${money(p.amt)}</div>
     <div class="cast-steps" id="steps"></div></div>`;
@@ -888,7 +923,7 @@ function cast(p, m) {
   const steps = ['Reading the merchant', 'Checking your budgets', 'Looking at this week', 'Asking Remy'];
   if (still) {
     $('steps').textContent = 'Looking at this week';
-    $('ovInner').insertAdjacentHTML('afterbegin', decor('cast'));
+    $('ovInner').querySelector('.cast-art').insertAdjacentHTML('beforeend', decor('cast'));
     if (shotName !== 'cast') verdict(p, m);
     return;
   }
@@ -934,31 +969,35 @@ function verdict(p, m) {
           : `<div class="v-actions"><button class="btn go block" data-a="pay">Pay ${money(p.amt)}</button></div>`)
     : `<div class="v-actions"><button class="btn go block" data-a="done">${v === 'good' ? 'Nice' : v === 'meh' ? 'Okay' : 'Lesson learned'}</button></div>`;
 
-  $('ovInner').innerHTML = `<div class="reveal" style="display:flex;flex-direction:column;flex:1">
-    <div class="v-top"><span>${before ? 'Before you pay' : 'Just paid'}</span><span class="pill">Spellcheck ${pct}</span></div>
+  // reasons that agree with the verdict; meh shows both sides
+  const agree = r.reasons.filter(x => (v === 'good' ? x.s === '+' : v === 'bad' ? x.s === '−' : true));
+  const shown = (agree.length ? agree : r.reasons).slice(0, 3);
+  $('ovInner').innerHTML = `<div class="reveal v-wrap">
+    <div class="v-top"><span>${before ? 'Before you pay' : 'Just paid'}</span><span><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M14 2.5l2 4.2 4.6.7-3.3 3.2.8 4.6-4.1-2.2-4.1 2.2.8-4.6L7.4 7.4l4.6-.7z" fill="currentColor"/><path d="M8.8 14.2L3 20.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>Spellcheck</span></div>
     <div class="v-merchant">${p.item} · ${p.merchant}</div>
     <div class="v-amount">${money(p.amt)}</div>
     <div class="v-pet" id="vPet" style="${v === 'bad' ? '--gk:#A3AD80;--gk-dark:#7C8460;--gk-belly:#D3D6BF' : ''}">${GECKO}</div>
     <div class="v-head serif"><i>${r.headline}</i></div>
     <div class="v-msg">${r.msg}</div>
-    <div class="v-score">
-      <div class="v-score-row"><span>Bad</span><span>Scored on-device in ${r.ms < 1 ? (r.ms * 1000).toFixed(0) + ' µs' : r.ms.toFixed(1) + ' ms'}</span><span>Good</span></div>
-      <div class="v-meter"><b style="left:40%"></b><b style="left:66%"></b><i id="vMeter"></i></div>
+    <div class="v-why">
+      <div class="v-why-top"><span>Why</span><b>${pct}<small>/100</small></b></div>
+      <div class="v-track"><span style="width:40%" class="${v === 'bad' ? 'on' : ''}"></span><span style="width:26%" class="${v === 'meh' ? 'on' : ''}"></span><span style="width:34%" class="${v === 'good' ? 'on' : ''}"></span><i id="vMeter" style="left:${still ? clamp(pct, 2, 98) : 50}%"></i></div>
+      <div class="v-zones"><span style="width:40%">Bad</span><span style="width:26%">Meh</span><span style="width:34%;text-align:right">Good</span></div>
+      <ul class="v-reasons">${shown.map(x => `<li class="${x.s === '+' ? 'up' : 'down'}">${x.t}</li>`).join('')}</ul>
+      <div class="v-foot">Scored on your phone in ${r.ms < 1 ? (r.ms * 1000).toFixed(0) + ' µs' : r.ms.toFixed(1) + ' ms'}</div>
     </div>
-    <div class="chips">${r.reasons.map(x => `<span class="chip"><span class="s">${x.s}</span>${x.t}</span>`).join('')}</div>
     ${actions}
   </div>`;
   const g = $('vPet').querySelector('.gecko');
   setMood(g, mood);
-  requestAnimationFrame(() => { const el = $('vMeter'); if (el) el.style.width = Math.max(4, pct) + '%'; });
+  requestAnimationFrame(() => requestAnimationFrame(() => { const el = $('vMeter'); if (el) el.style.left = clamp(pct, 2, 98) + '%'; }));
   if (still) {
-    $('ovInner').insertAdjacentHTML('afterbegin', decor(v));
-    const el = $('vMeter'); if (el) el.style.width = Math.max(4, pct) + '%';
+    $('vPet').insertAdjacentHTML('afterbegin', decor(v));
   }
-  const W0 = innerWidth / 2, H0 = 300;
+  const pr = $('vPet').getBoundingClientRect(), W0 = pr.left + pr.width / 2, H0 = pr.top + pr.height / 2;
   if (v === 'good') { SFX.good(); buzz([15, 40, 15, 40, 30]); burst('sparkle', W0, H0); }
   else if (v === 'meh') { SFX.meh(); buzz(40); }
-  else { SFX.bad(); buzz([80, 60, 200]); burst('smoke', W0, H0 + 40); }
+  else { SFX.bad(); buzz([80, 60, 200]); burst('smoke', W0, H0 + 20); }
 
   if (!before) settle(p, r, true);
   $('ovInner').onclick = e => {
@@ -1088,21 +1127,27 @@ $('notif').onclick = () => {
 };
 addEventListener('hashchange', fromLink);
 
-// Static stand-ins for the canvas effects, so they import into Figma as shapes.
+// Static stand-ins for the canvas effects, so they import into Figma as shapes. Drawn around Remy (0,0).
 function decor(kind) {
   const rnd = (i, k) => { const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };
-  const star = (x, y, r, fill, o) => `<path transform="translate(${x} ${y})" d="M0 ${-r} L${r * .28} ${-r * .28} L${r} 0 L${r * .28} ${r * .28} L0 ${r} L${-r * .28} ${r * .28} L${-r} 0 L${-r * .28} ${-r * .28} Z" fill="${fill}" opacity="${o}"/>`;
-  let body = '';
-  if (kind === 'good') for (let i = 0; i < 46; i++) {
-    const a = rnd(i, 1) * Math.PI * 2, d = 40 + rnd(i, 2) * 230;
-    body += star(195 + Math.cos(a) * d, 300 + Math.sin(a) * d * 0.9, 3 + rnd(i, 3) * 9, rnd(i, 4) < .55 ? '#0B0B0A' : '#FFFFFF', (0.35 + rnd(i, 5) * 0.6).toFixed(2));
+  const star = (x, y, r, fill, o) => `<path transform="translate(${x.toFixed(1)} ${y.toFixed(1)})" d="M0 ${-r} L${r * .28} ${-r * .28} L${r} 0 L${r * .28} ${r * .28} L0 ${r} L${-r * .28} ${r * .28} L${-r} 0 L${-r * .28} ${-r * .28} Z" fill="${fill}" opacity="${o}"/>`;
+  let body = '', box = '-180 -150 360 300', blur = '';
+  if (kind === 'good') for (let i = 0; i < 34; i++) {
+    // a loose ring outside Remy's silhouette
+    const a = rnd(i, 1) * Math.PI * 2, d = 112 + rnd(i, 2) * 62;
+    body += star(Math.cos(a) * d, Math.sin(a) * d * 0.78, 3 + rnd(i, 3) * 8, rnd(i, 4) < .6 ? '#0B0B0A' : '#FFFFFF', (0.45 + rnd(i, 5) * 0.55).toFixed(2));
   }
-  if (kind === 'cast') for (let i = 0; i < 12; i++) body += star(150 + rnd(i, 1) * 120, 330 + rnd(i, 2) * 110, 2 + rnd(i, 3) * 6, rnd(i, 4) < .5 ? '#D4F53C' : '#FFFFFF', (0.4 + rnd(i, 5) * 0.5).toFixed(2));
-  if (kind === 'bad') for (let i = 0; i < 26; i++) {
-    const a = rnd(i, 1) * Math.PI * 2, d = 50 + rnd(i, 2) * 120;
-    body += `<circle cx="${(195 + Math.cos(a) * d).toFixed(1)}" cy="${(320 + Math.sin(a) * d * 0.6).toFixed(1)}" r="${(26 + rnd(i, 3) * 34).toFixed(1)}" fill="#9A9A94" opacity="${(0.06 + rnd(i, 4) * 0.1).toFixed(2)}"/>`;
+  if (kind === 'cast') { box = '0 0 200 200'; for (let i = 0; i < 12; i++) body += star(70 + rnd(i, 1) * 90, 80 + rnd(i, 2) * 80, 2 + rnd(i, 3) * 5, rnd(i, 4) < .5 ? '#D4F53C' : '#FFFFFF', (0.4 + rnd(i, 5) * 0.5).toFixed(2)); }
+  if (kind === 'bad') {
+    blur = ';filter:blur(12px)';
+    for (let i = 0; i < 22; i++) {
+      const a = rnd(i, 1) * Math.PI * 2, d = 70 + rnd(i, 2) * 90;
+      body += `<circle cx="${(Math.cos(a) * d).toFixed(1)}" cy="${(Math.sin(a) * d * 0.62 + 10).toFixed(1)}" r="${(24 + rnd(i, 3) * 30).toFixed(1)}" fill="#9A9A94" opacity="${(0.08 + rnd(i, 4) * 0.12).toFixed(2)}"/>`;
+    }
   }
-  return body ? `<svg class="decor" viewBox="0 0 390 844" preserveAspectRatio="xMidYMin slice" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:-1${kind === 'bad' ? ';filter:blur(14px)' : ''}" aria-hidden="true">${body}</svg>` : '';
+  if (!body) return '';
+  const style = kind === 'cast' ? 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none' : 'z-index:0' + blur;
+  return `<svg class="decor" viewBox="${box}" style="${style}" aria-hidden="true">${body}</svg>`;
 }
 
 const SHOTS = {
