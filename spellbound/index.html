@@ -27,7 +27,6 @@
   --gk: #C8EE2A;
   --gk-dark: #9DC40F;
   --gk-belly: #EAFBA4;
-  --gk-deep: #86A80C;
   --r: 16px;
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
@@ -76,16 +75,23 @@ input { font: inherit; }
 .bar { height: 6px; border-radius: 99px; background: rgba(255,255,255,0.12); margin-top: 8px; overflow: hidden; }
 .bar > i { display: block; height: 100%; width: 50%; background: var(--lime); border-radius: 99px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
 
-/* gecko moods: poses are drawn by geckoParts(); CSS only adds motion */
+/* gecko moods */
+.gecko .part { transition: opacity .2s; }
+.gecko [data-show] { opacity: 0; }
+.gecko[data-mood="happy"] [data-show~="happy"],
+.gecko[data-mood="joy"] [data-show~="joy"],
+.gecko[data-mood="meh"] [data-show~="meh"],
+.gecko[data-mood="sad"] [data-show~="sad"],
+.gecko[data-mood="cry"] [data-show~="cry"] { opacity: 1; }
 .gecko .bodyg { transform-origin: 110px 200px; }
 .gecko[data-mood="happy"] .bodyg { animation: breathe 3.2s ease-in-out infinite; }
 .gecko[data-mood="joy"] .bodyg { animation: hop .55s cubic-bezier(.3,.7,.4,1) 3; }
 .gecko[data-mood="meh"] .bodyg { animation: sway 3s ease-in-out infinite; }
 .gecko[data-mood="sad"] .bodyg, .gecko[data-mood="cry"] .bodyg { animation: droop 1.4s ease-out forwards; }
 .gecko[data-mood="cry"] .bodyg { animation: droop 1.4s ease-out forwards, shiver .12s linear 6; }
-.gecko .tail { transform-origin: 74px 150px; animation: wag 2.4s ease-in-out infinite; }
+.gecko .tail { transform-origin: 150px 176px; animation: wag 2.4s ease-in-out infinite; }
 .gecko[data-mood="joy"] .tail { animation-duration: .45s; }
-.gecko[data-mood="sad"] .tail, .gecko[data-mood="cry"] .tail { animation: none; }
+.gecko[data-mood="sad"] .tail, .gecko[data-mood="cry"] .tail { animation: none; transform: rotate(14deg); }
 .gecko .blink { transform-origin: center; transform-box: fill-box; animation: blink 4.6s infinite; }
 .gecko .tear { animation: tear 1.3s ease-in infinite; }
 @keyframes breathe { 0%,100% { transform: scale(1,1); } 50% { transform: scale(1.02,.98); } }
@@ -399,67 +405,60 @@ input { font: inherit; }
 'use strict';
 
 /* ---------- gecko ---------- */
-/* ---------- Remy ---------- */
-// Remy, side-on, in flat planes of one colour (base, shade, deep shade, light belly) with no outlines.
-// Poses are baked into transform attributes so they survive SVG export; CSS only animates outer groups.
-function geckoParts(m) {
-  const sad = m === 'sad' || m === 'cry', joy = m === 'joy';
-  const rig = joy ? 'translate(6 -26) rotate(-24 110 140)' : sad ? 'translate(0 8)' : '';
-  const head = joy ? 'rotate(-6 136 118)' : sad ? 'rotate(18 136 118)' : m === 'meh' ? 'translate(-3 9) rotate(5 136 118)' : 'translate(-3 9)';
-  const tail = joy ? 'rotate(26 70 148)' : sad ? 'rotate(-26 70 148)' : '';
-  const legs = joy ? { fb: 'rotate(58 82 150)', ff: 'rotate(-62 130 148)' } : sad ? { fb: 'rotate(-6 82 150)', ff: 'rotate(8 130 148)' } : { fb: '', ff: '' };
-  // a bent gecko leg with three splayed toes; dir 1 = elbow forward, -1 = knee back
-  const leg = (x, y, dir, col) => {
-    const ex = x + 14 * dir, fx = x + 6 * dir;
-    return `<path d="M${x} ${y} L${ex} ${y + 16} L${fx} ${y + 32}" fill="none" stroke="var(${col})" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
-      <g fill="var(${col})"><ellipse cx="${fx - 9}" cy="${y + 35}" rx="5.5" ry="3.6"/><ellipse cx="${fx + 1}" cy="${y + 37.5}" rx="5.5" ry="3.6"/><ellipse cx="${fx + 10}" cy="${y + 35}" rx="5.5" ry="3.6"/></g>`;
-  };
-  const eye = joy
-    ? `<path d="M160 90 Q169 79 178 90" fill="none" stroke="#0B0B0A" stroke-width="5" stroke-linecap="round"/>`
-    : `<g class="blink"><circle cx="169" cy="89" r="10" fill="#0B0B0A"/><circle cx="172.5" cy="85.5" r="3.6" fill="#fff"/></g>`
-      + (m === 'meh' ? `<path d="M157 89 A12 12 0 0 1 181 89 Z" fill="var(--gk)"/><path d="M157.5 89 H180.5" stroke="#0B0B0A" stroke-width="4" stroke-linecap="round"/>` : '')
-      + (sad ? `<path d="M156 72 Q166 73 178 67" fill="none" stroke="#0B0B0A" stroke-width="4" stroke-linecap="round"/>` : '');
-  const mouth = joy
-    ? `<path d="M174 106 Q192 114 204 100 Q198 124 178 114 Z" fill="#0B0B0A"/><path d="M183 114 Q192 113 197 108 Q194 118 186 117 Z" fill="#F2A7A0"/>`
-    : m === 'happy' ? `<path d="M177 108 Q192 113 203 101" fill="none" stroke="#0B0B0A" stroke-width="4" stroke-linecap="round"/>`
-    : m === 'meh' ? `<path d="M180 109 L202 106" fill="none" stroke="#0B0B0A" stroke-width="4" stroke-linecap="round"/>`
-    : `<path d="M180 113 Q192 103 203 109" fill="none" stroke="#0B0B0A" stroke-width="4" stroke-linecap="round"/>`;
-  const tear = m === 'cry' ? `<path class="tear" d="M165 104 C165 104 159 113 159 117 A6 6 0 0 0 171 117 C171 113 165 104 165 104 Z" fill="#9FD8F2"/>` : '';
-  let trail = '';
-  if (joy) {
-    // three flat bands along the leap, fading out behind
-    const d = [-1, 0], n = [0, 1], c = [96, 145], L = 150, w = 12;
-    const cols = ['#FFFFFF', 'var(--gk-dark)', '#0B0B0A'];
-    trail = cols.map((col, i) => {
-      const k = (i - 1) * w, p = (a, b) => `${(c[0] + n[0] * (k + a) + d[0] * b).toFixed(1)} ${(c[1] + n[1] * (k + a) + d[1] * b).toFixed(1)}`;
-      return `<linearGradient id="tr${i}" gradientUnits="userSpaceOnUse" x1="${c[0]}" y1="${c[1]}" x2="${(c[0] + d[0] * L).toFixed(0)}" y2="${(c[1] + d[1] * L).toFixed(0)}"><stop offset="0" stop-color="${col}" stop-opacity="${i === 2 ? .8 : 1}"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient>
-        <path d="M${p(-w / 2, 0)} L${p(w / 2, 0)} L${p(w / 2, L)} L${p(-w / 2, L)} Z" fill="url(#tr${i})"/>`;
-    }).join('');
-  }
-  return `
-  <g class="bodyg"><g transform="${rig}">${trail}
-    <g transform="${tail}"><g class="tail">
-      <path d="M74 136 C42 134 16 152 20 178 C23 198 46 206 60 196 C70 189 68 175 57 175 C49 175 47 184 52 187 C41 188 36 177 40 168 C47 154 66 152 80 158 Z" fill="var(--gk)"/>
-      <path d="M80 158 C66 152 47 154 40 168 C38 172 38 176 39 179 C44 166 60 162 78 166 Z" fill="var(--gk-dark)"/>
-    </g></g>
-    <g transform="${legs.fb}">${leg(92, 150, -1, '--gk-deep')}</g>
-    <g transform="${legs.ff}">${leg(140, 146, 1, '--gk-deep')}</g>
-    <path d="M62 150 C60 130 82 120 106 120 C120 120 130 116 138 110 L156 126 C156 152 134 168 104 168 C80 168 64 164 62 150 Z" fill="var(--gk)"/>
-    <path d="M64 142 C68 128 86 121 106 121 C120 121 130 117 138 111 L144 116 C132 126 116 130 98 131 C82 132 70 136 64 142 Z" fill="var(--gk-dark)"/>
-    <path d="M74 160 C94 167 128 164 150 144 C146 160 128 169 104 169 C88 169 78 166 74 160 Z" fill="var(--gk-belly)"/>
-    <circle cx="86" cy="137" r="3.6" fill="var(--gk-deep)"/><circle cx="101" cy="134" r="2.6" fill="var(--gk-deep)"/><circle cx="74" cy="145" r="2.4" fill="var(--gk-deep)"/>
-    <g transform="${legs.fb}">${leg(80, 152, -1, '--gk-dark')}</g>
-    <g transform="${legs.ff}">${leg(128, 148, 1, '--gk-dark')}</g>
-    <g transform="${head}">
-      <path d="M122 106 C118 78 142 60 168 60 C192 60 210 76 208 98 C206 118 188 128 164 128 C140 128 124 122 122 106 Z" fill="var(--gk)"/>
-      <path d="M134 120 C150 128 178 130 202 112 C196 124 182 130 164 130 C150 130 140 126 134 120 Z" fill="var(--gk-belly)"/>
-      <circle cx="169" cy="89" r="15" fill="var(--gk)"/>
-      ${eye}${mouth}${tear}
-      <circle cx="203" cy="94" r="2" fill="#0B0B0A" opacity=".45"/>
+const GECKO = `
+<svg class="gecko" viewBox="0 0 220 220" data-mood="happy" aria-hidden="true">
+  <g class="bodyg">
+    <path class="tail" d="M146 182 C190 186 206 150 188 128 C176 113 154 120 160 136 C164 146 176 144 176 136" fill="none" stroke="var(--gk)" stroke-width="15" stroke-linecap="round"/>
+    <ellipse cx="72" cy="192" rx="17" ry="10" fill="var(--gk-dark)"/>
+    <ellipse cx="148" cy="192" rx="17" ry="10" fill="var(--gk-dark)"/>
+    <circle cx="58" cy="194" r="4.5" fill="var(--gk-dark)"/><circle cx="66" cy="200" r="4.5" fill="var(--gk-dark)"/>
+    <circle cx="162" cy="194" r="4.5" fill="var(--gk-dark)"/><circle cx="154" cy="200" r="4.5" fill="var(--gk-dark)"/>
+    <ellipse cx="110" cy="160" rx="50" ry="38" fill="var(--gk)"/>
+    <ellipse cx="110" cy="168" rx="31" ry="24" fill="var(--gk-belly)"/>
+    <ellipse cx="68" cy="158" rx="11" ry="19" transform="rotate(20 68 158)" fill="var(--gk-dark)"/>
+    <ellipse cx="152" cy="158" rx="11" ry="19" transform="rotate(-20 152 158)" fill="var(--gk-dark)"/>
+    <circle cx="66" cy="62" r="25" fill="var(--gk)"/>
+    <circle cx="154" cy="62" r="25" fill="var(--gk)"/>
+    <ellipse cx="110" cy="98" rx="72" ry="52" fill="var(--gk)"/>
+    <circle cx="104" cy="60" r="5" fill="var(--gk-dark)"/><circle cx="118" cy="52" r="3.5" fill="var(--gk-dark)"/><circle cx="114" cy="68" r="2.5" fill="var(--gk-dark)"/>
+    <circle cx="160" cy="118" r="4" fill="var(--gk-dark)"/><circle cx="58" cy="122" r="3" fill="var(--gk-dark)"/>
+    <circle cx="103" cy="98" r="2.4" fill="#0B0B0A" opacity=".55"/><circle cx="117" cy="98" r="2.4" fill="#0B0B0A" opacity=".55"/>
+    <ellipse cx="50" cy="106" rx="12" ry="7" fill="var(--gk-dark)" opacity=".55"/>
+    <ellipse cx="170" cy="106" rx="12" ry="7" fill="var(--gk-dark)" opacity=".55"/>
+
+    <!-- open eyes -->
+    <g class="part" data-show="happy meh sad cry">
+      <g class="blink"><circle cx="66" cy="62" r="16" fill="#0B0B0A"/><circle cx="72" cy="55" r="5.5" fill="#fff"/><circle cx="61" cy="69" r="2.4" fill="#fff"/></g>
+      <g class="blink"><circle cx="154" cy="62" r="16" fill="#0B0B0A"/><circle cx="160" cy="55" r="5.5" fill="#fff"/><circle cx="149" cy="69" r="2.4" fill="#fff"/></g>
     </g>
-  </g></g>`;
-}
-const GECKO = `<svg class="gecko" viewBox="0 0 220 220" data-mood="" aria-hidden="true"></svg>`;
+    <!-- joy eyes ^ ^ -->
+    <g class="part" data-show="joy" fill="none" stroke="#0B0B0A" stroke-width="6" stroke-linecap="round">
+      <path d="M52 68 Q66 48 80 68"/><path d="M140 68 Q154 48 168 68"/>
+    </g>
+    <!-- half lids for meh -->
+    <g class="part" data-show="meh">
+      <path d="M48 62 A18 18 0 0 1 84 62 Z" fill="var(--gk)"/><path d="M136 62 A18 18 0 0 1 172 62 Z" fill="var(--gk)"/>
+      <path d="M48 62 H84 M136 62 H172" stroke="#0B0B0A" stroke-width="4" stroke-linecap="round"/>
+    </g>
+    <!-- worried brows -->
+    <g class="part" data-show="sad cry" fill="none" stroke="#0B0B0A" stroke-width="5" stroke-linecap="round">
+      <path d="M50 46 Q64 42 82 34"/><path d="M170 46 Q156 42 138 34"/>
+    </g>
+    <!-- mouths -->
+    <path class="part" data-show="happy" d="M84 112 Q110 132 136 112" fill="none" stroke="#0B0B0A" stroke-width="5" stroke-linecap="round"/>
+    <g class="part" data-show="joy">
+      <path d="M80 108 Q110 150 140 108 Z" fill="#0B0B0A" stroke="#0B0B0A" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M98 128 Q110 118 122 128 Q118 138 110 138 Q102 138 98 128 Z" fill="#F2A7A0"/>
+    </g>
+    <path class="part" data-show="meh" d="M92 120 Q104 116 128 122" fill="none" stroke="#0B0B0A" stroke-width="5" stroke-linecap="round"/>
+    <path class="part" data-show="sad cry" d="M86 128 Q110 106 134 128" fill="none" stroke="#0B0B0A" stroke-width="5" stroke-linecap="round"/>
+    <!-- tears -->
+    <g class="part" data-show="cry">
+      <path class="tear" d="M56 82 C56 82 49 92 49 96 A7 7 0 0 0 63 96 C63 92 56 82 56 82 Z" fill="#9FD8F2"/>
+      <path class="tear" style="animation-delay:.6s" d="M164 82 C164 82 157 92 157 96 A7 7 0 0 0 171 96 C171 92 164 82 164 82 Z" fill="#9FD8F2"/>
+    </g>
+  </g>
+</svg>`;
 
 const petSlot = document.getElementById('petSlot');
 petSlot.innerHTML = GECKO;
@@ -780,9 +779,8 @@ function geckoColour(v) {
   root.setProperty('--gk', mix([200, 238, 42], [158, 168, 118], t));
   root.setProperty('--gk-dark', mix([157, 196, 15], [120, 128, 92], t));
   root.setProperty('--gk-belly', mix([234, 251, 164], [206, 210, 186], t));
-  root.setProperty('--gk-deep', mix([134, 168, 12], [104, 111, 80], t));
 }
-function setMood(el, m) { el.innerHTML = geckoParts(m); el.dataset.mood = ''; void el.getBoundingClientRect(); el.dataset.mood = m; }
+function setMood(el, m) { el.dataset.mood = ''; void el.getBoundingClientRect(); el.dataset.mood = m; }
 
 let showAllBudgets = false;
 function render() {
@@ -978,7 +976,7 @@ function verdict(p, m) {
     <div class="v-top"><span>${before ? 'Before you pay' : 'Just paid'}</span><span><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M14 2.5l2 4.2 4.6.7-3.3 3.2.8 4.6-4.1-2.2-4.1 2.2.8-4.6L7.4 7.4l4.6-.7z" fill="currentColor"/><path d="M8.8 14.2L3 20.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>Spellcheck</span></div>
     <div class="v-merchant">${p.item} · ${p.merchant}</div>
     <div class="v-amount">${money(p.amt)}</div>
-    <div class="v-pet" id="vPet" style="${v === 'bad' ? '--gk:#A3AD80;--gk-dark:#7C8460;--gk-deep:#686F50;--gk-belly:#D3D6BF' : ''}">${GECKO}</div>
+    <div class="v-pet" id="vPet" style="${v === 'bad' ? '--gk:#A3AD80;--gk-dark:#7C8460;--gk-belly:#D3D6BF' : ''}">${GECKO}</div>
     <div class="v-head serif"><i>${r.headline}</i></div>
     <div class="v-msg">${r.msg}</div>
     <div class="v-why">

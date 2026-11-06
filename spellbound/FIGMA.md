@@ -8,7 +8,7 @@ Three parts, one Figma file:
 3. **Workflow**: the system diagram in FigJam.
 
 Base URL for every link below:
-`https://raw.githack.com/emill-y/WhatsInMyBag/9fb827615f8ba68c6de474b8656a0e2fd71189c3/spellbound/index.html`
+`https://raw.githack.com/emill-y/WhatsInMyBag/67d55a528d7f8cef5e9106c2708a1709df3d3ce6/spellbound/index.html`
 
 ---
 
@@ -81,7 +81,7 @@ Build a mobile app prototype (iPhone, 390×844) called "Spellbound", a Ramp Fami
 
 STYLE: minimal fintech, in the style of Ramp. Off-white background #F4F3EE, white cards #FFFFFF with 1px hairlines #E4E2DA and 16px radius, near-black #0B0B0A text and primary buttons, ONE accent colour: lime #D4F53C. Inter for all UI (big numbers 600 weight, tight tracking, tabular figures); Instrument Serif Italic only for the verdict headline. Pill buttons 56px tall. Flat fills, no shadows, no gradients. Lots of white space. Whimsical but restrained.
 
-MASCOT: "Remy", a gecko drawn like Asana's celebration creatures: seen side-on facing right, one clean silhouette with NO outlines, built from flat planes of a single lime: base #C8EE2A, shade #9DC40F (the back and the near legs), deep shade #86A80C (the far legs, spots), light #EAFBA4 (belly and jaw). Big rounded head on a short rising neck, a long body, a tail that curls into a spiral, bent legs with three soft splayed toes, a few small spots on the back. The face is tiny and simple: one round black eye with a white glint, a single-line mouth. Moods: happy (standing, gentle smile), joy (leaping up and to the right, legs stretched, ^-shaped closed eye, open grin, with a three-band motion streak behind him in white, shade lime and ink that fades out — like the Asana trails), meh (standing, head tipped down slightly, half-closed eye, flat mouth), sad (head dropped, tail lowered, worried brow above the eye, frown, colours fade to dusty olive #A3AD80 / #7C8460 / #D3D6BF), cry (sad + one blue tear).
+MASCOT: "Remy", a cute, round, flat-vector gecko: lime body #C8EE2A, darker lime spots and limbs #9DC40F, pale belly #EAFBA4, big black glossy eyes on top of the head, curled tail. Five moods: happy (smile), joy (^ ^ eyes, open grin, hopping), meh (half-closed eyes, flat mouth), sad (worried brows, frown, colour fades to dusty olive #A3AD80), cry (sad + blue tears).
 
 SCREENS:
 1. Home: header "Spellbound" with a small star-wand logo and "Ramp Family". Black rounded card (24px radius) with Remy in the middle, name "Remy" in serif, "Lvl 3" lime pill, and three stats: Vibe 74 (lime progress bar), Charms 0, Streak 0. Below: white card "Available to spend $412.18" (cents in grey) and a row "Mom sent you money · For the water bill · set aside · $275" with a lime water-drop icon. One full-width black button "Cast before you pay" with a lime wand icon, and under it a quiet text link "Already paid? Log it". Budgets show the 4 most at-risk categories plus "Show all 9"; rows use thin line icons per category, not letters. Then "Budgets this month" rows (Groceries $188 of $400 left, Bills, Transport, Eating out, Delivery, Coffee & treats, Clothing, Fun) with thin progress bars, and "Recent spells" rows with a coloured dot for good/meh/bad.
