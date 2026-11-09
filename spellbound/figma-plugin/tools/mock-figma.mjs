@@ -113,6 +113,7 @@ class Node {
     }
     this.reactions = list; stats.reactions += list.length;
   }
+  async exportAsync(opts) { if (!opts || opts.format !== 'PNG') fail('export format'); if (pageOf(this) && !pageOf(this)) fail('page not loaded'); return new Uint8Array(8); }
   async setTextStyleIdAsync(id) { if (this.type !== 'TEXT') fail('text style on ' + this.type); if (!styles.has(id)) fail('unknown text style'); this.textStyleId = id; }
   async setVectorNetworkAsync(net) { if (this.type !== 'VECTOR') fail('vector network on ' + this.type); if (!net.vertices || !net.segments) fail('bad network'); this.vectorNetwork = net; }
   set constraints(c) { if (!c.horizontal || !c.vertical) fail('constraints need both axes'); this._con = c; }
@@ -224,7 +225,8 @@ const figma = {
   async setCurrentPageAsync(p) { if (p.type !== 'PAGE') fail('not a page'); this.currentPage = p; },
   async loadFontAsync(f) { const k = fontKey(f); if (!AVAILABLE.includes(k)) throw new Error('font unavailable ' + k); loaded.add(k); },
   notify() {},
-  showUI() { figma.ui._shown = true; },
+  showUI() { figma.ui._shown = true; setTimeout(() => figma.ui.onmessage && figma.ui.onmessage({ type: 'ready' }), 5); },
+  createImage(bytes) { if (!(bytes instanceof Uint8Array)) fail('createImage needs bytes'); return { hash: 'img' + (nextId++) }; },
   ui: { _log: [], postMessage(m) { this._log.push(m); if (m.type === 'done') figma._closed = m.summary || 'done'; }, onmessage: null, resize() {} },
   closePlugin(msg) { figma._closed = msg; },
   async setFileThumbnailNodeAsync(n) { if (n.type !== 'FRAME') fail('thumbnail must be a frame'); },

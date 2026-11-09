@@ -68,7 +68,17 @@ const TS = {
 // ---------- progress panel and guarded steps ----------
 // Every step reports to a panel in Figma. A failing step is logged and skipped so the rest still builds.
 const LOG = [], SEEN = {};
-const errText = e => (e && e.message ? e.message : String(e));
+const errText = e => {
+  const msg = e && e.message ? e.message : String(e);
+  const at = e && e.stack ? (String(e.stack).split('\n').map(l => l.trim()).filter(l => l.indexOf('at ') === 0)[0] || '') : '';
+  return at ? msg + ' (' + at.replace(/\s*\(.*\)$/, '') + ')' : msg;
+};
+// blur effects: newer Figma wants a blurType, older Figma rejects it
+function setEffects(node, effects) {
+  try { node.effects = effects; } catch (e) {
+    try { node.effects = effects.map(x => Object.assign({ blurType: 'NORMAL' }, x)); } catch (e2) { warnOnce('Effects', e2); }
+  }
+}
 const TOTAL_STEPS = 41;
 let done = 0;
 function log(kind, msg) {
@@ -81,7 +91,9 @@ function warnOnce(where, e) {
   if (SEEN[k]) return; SEEN[k] = 1;
   log('warn', where + ' — ' + errText(e));
 }
+const tick = () => new Promise(r => setTimeout(r, 0));
 async function step(name, fn) {
+  await tick();
   try { const r = await fn(); log('ok', name); return r; } catch (e) { log('error', name + ' — ' + errText(e)); console.error(e); return null; }
 }
 // run a factory; if it fails, log once and return a plain placeholder so the screen still lays out
@@ -695,7 +707,7 @@ function makeSmallComponents() {
     ]),
   ]);
   const nc = asComponent(n, 'Notification');
-  nc.effects = [{ type: 'BACKGROUND_BLUR', radius: 24, visible: true }];
+  setEffects(nc, [{ type: 'BACKGROUND_BLUR', radius: 24, visible: true }]);
   nc.description = 'Arrives the moment a card is tapped. Tapping it opens the verdict.';
   C.notif = { comp: nc, title: textProp(nc, [nc], 'Title', 'Title', 'Matcha Moon · $7.25'), body: textProp(nc, [nc], 'Body', 'Body', 'Paid with Apple Pay. Tap to see Remy.') };
 }
@@ -920,7 +932,7 @@ function verdictScreen(o) {
   const petArea = frame('Pet', { fill: true, grow: true, main: 'CENTER', cross: 'CENTER' }, [remy(o.mood, 220)]);
   if (o.v === 'good' || o.v === 'bad') {
     const fx = svg(o.v === 'good' ? ASSETS.fx.good : ASSETS.fx.bad, o.v === 'good' ? 'Sparkles' : 'Smoke');
-    if (o.v === 'bad') fx.effects = [{ type: 'LAYER_BLUR', radius: 12, visible: true }];
+    if (o.v === 'bad') setEffects(fx, [{ type: 'LAYER_BLUR', radius: 12, visible: true }]);
     behind(petArea, fx);
   }
   const buttons = o.actions.map(a => button(a[0], a[1], { fill: true }));
@@ -1075,7 +1087,8 @@ function failedScreen(name, e) {
   r.appendChild(t); t.x = 20; t.y = 80;
   return r;
 }
-function build(name, fn) {
+async function build(name, fn) {
+  await tick();
   const page = figma.currentPage;
   const before = new Set(page.children.map(n => n.id));
   try { const r = fn(); log('ok', 'Screen · ' + (r.root ? r.root.name : name)); return r; } catch (e) {
@@ -1090,30 +1103,30 @@ async function buildPrototype(page) {
   await figma.setCurrentPageAsync(page);
   const S = {};
   const HOME_BASE = { vibe: 74, charms: 0, streak: 0, mood: 'happy', moodLine: 'Thriving · keep casting good spells', level: 3, balance: ['$412', '.18'], earmark: { state: 'set', sub: 'For the water bill · set aside', amount: '$275' }, budgets: BASE_BUDGETS, history: BASE_HISTORY };
-  S.welcome = build('welcome', () => welcomeScreen('01 Welcome · Meet Remy'));
-  S.home = build('home', () => home(Object.assign({ name: '02 Home' }, HOME_BASE)));
-  S.sheet = build('sheet', () => sheetScreen('03 Choose a purchase'));
-  S.notif = build('notif', () => notificationScreen('04 Notification · Apple Pay'));
+  S.welcome = await build('welcome', () => welcomeScreen('01 Welcome · Meet Remy'));
+  S.home = await build('home', () => home(Object.assign({ name: '02 Home' }, HOME_BASE)));
+  S.sheet = await build('sheet', () => sheetScreen('03 Choose a purchase'));
+  S.notif = await build('notif', () => notificationScreen('04 Notification · Apple Pay'));
   const cast = {
-    good: build('cast good', () => ({ root: castingScreen('05 Casting → good', 'Weekly groceries · $64.20') })).root,
-    purpose: build('cast purpose', () => ({ root: castingScreen('05b Casting → on purpose', 'Water bill · $275.00') })).root,
-    treat: build('cast treat', () => ({ root: castingScreen('05c Casting → earned it', 'Iced oat matcha · $7.25') })).root,
-    meh: build('cast meh', () => ({ root: castingScreen('05d Casting → meh', 'Dinner with friends · $38.40') })).root,
-    bad: build('cast bad', () => ({ root: castingScreen('05e Casting → bad', 'Iced oat matcha · $7.25') })).root,
-    earmark: build('cast earmark', () => ({ root: castingScreen('05f Casting → Mom’s money', 'Cart · 6 clothing items · $275.00') })).root,
-    paid: build('cast paid', () => ({ root: castingScreen('05g Casting → just paid', 'Iced oat matcha · $7.25') })).root,
+    good: (await build('cast good', () => ({ root: castingScreen('05 Casting → good', 'Weekly groceries · $64.20') }))).root,
+    purpose: (await build('cast purpose', () => ({ root: castingScreen('05b Casting → on purpose', 'Water bill · $275.00') }))).root,
+    treat: (await build('cast treat', () => ({ root: castingScreen('05c Casting → earned it', 'Iced oat matcha · $7.25') }))).root,
+    meh: (await build('cast meh', () => ({ root: castingScreen('05d Casting → meh', 'Dinner with friends · $38.40') }))).root,
+    bad: (await build('cast bad', () => ({ root: castingScreen('05e Casting → bad', 'Iced oat matcha · $7.25') }))).root,
+    earmark: (await build('cast earmark', () => ({ root: castingScreen('05f Casting → Mom’s money', 'Cart · 6 clothing items · $275.00') }))).root,
+    paid: (await build('cast paid', () => ({ root: castingScreen('05g Casting → just paid', 'Iced oat matcha · $7.25') }))).root,
   };
-  S.good = build('good', () => verdictScreen({ name: '06 Good spell', v: 'good', mood: 'joy', mode: 'Before you pay', item: 'Weekly groceries · Greenleaf Market', amount: '$64.20', headline: 'Good spell.', msg: 'Feeding future you. Remy approves.', score: 96, us: 24, reasons: [['+', 'Essential · groceries'], ['+', '$124 left in groceries']], actions: [['Ink on lime', 'Pay $64.20']] }));
-  S.purpose = build('purpose', () => verdictScreen({ name: '07 Good spell · on purpose', v: 'good', mood: 'joy', mode: 'Before you pay', item: 'Water bill · Metro Water', amount: '$275.00', headline: 'Good spell.', msg: 'Exactly what Mom sent it for. Remy is proud of you.', score: 99, us: 24, reasons: [['+', 'What Mom sent it for'], ['+', 'Essential · bills'], ['+', '$25 left in bills']], actions: [['Ink on lime', 'Pay $275.00']] }));
-  S.treat = build('treat', () => verdictScreen({ name: '08 Earned it', v: 'meh', mood: 'meh', mode: 'Before you pay', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Earned it.', msg: 'Treat unlocked — you earned this one with good spells.', score: 62, us: 27, reasons: [['+', 'Treat unlocked · 2 charms'], ['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Primary', 'Pay $7.25'], ['Outline', 'Skip it']] }));
-  S.meh = build('meh', () => verdictScreen({ name: '09 Meh', v: 'meh', mood: 'meh', mode: 'Before you pay', item: 'Dinner with friends · Sushi Ko', amount: '$38.40', headline: 'Hmm. Meh.', msg: 'Not great, not terrible. Maybe sleep on it?', score: 58, us: 23, reasons: [['−', '2nd eating out buy this week'], ['−', 'Nice-to-have · eating out'], ['+', '$16 left in eating out']], actions: [['Primary', 'Pay $38.40'], ['Outline', 'Skip it']] }));
-  S.bad = build('bad', () => verdictScreen({ name: '10 Bad spell', v: 'bad', mood: 'sad', mode: 'Before you pay', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Bad spell.', msg: '3rd matcha this week. Remy is worried.', score: 29, us: 25, reasons: [['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Lime', 'Skip it · +1 charm'], ['Outline on ink', 'Pay anyway']] }));
-  S.earmark = build('earmark', () => verdictScreen({ name: '11 Bad spell · Mom’s money', v: 'bad', mood: 'cry', mode: 'Before you pay', item: 'Cart · 6 clothing items · Closet Cart', amount: '$275.00', headline: 'Bad spell.', msg: 'That’s Mom’s money for the water bill.', score: 1, us: 39, reasons: [['−', 'Uses $138 of Mom’s water bill money'], ['−', 'Over clothing budget by $269'], ['−', 'Nice-to-have · clothing']], actions: [['Lime', 'Skip it · +1 charm'], ['Outline on ink', 'Pay anyway']] }));
-  S.paid = build('paid', () => verdictScreen({ name: '12 Just paid · Apple Pay', v: 'bad', mood: 'sad', mode: 'Just paid', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Bad spell.', msg: '3rd matcha this week. Remy is so sad.', score: 18, us: 25, reasons: [['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Lime', 'Lesson learned']] }));
-  S.after = build('after', () => home(Object.assign({}, HOME_BASE, { name: '13 Home · after a good spell', vibe: 84, charms: 1, streak: 1, mood: 'joy', moodLine: 'Thriving · on a roll', balance: ['$347', '.98'], toast: 'Good spell · +1 charm', history: [['Good', 'groceries', 'Weekly groceries', 'Greenleaf Market · just now', '$64.20']].concat(BASE_HISTORY.slice(0, 4)) })));
-  S.wilt = build('wilt', () => home(Object.assign({}, HOME_BASE, { name: '14 Home · wilting', vibe: 28, mood: 'sad', moodLine: 'Wilting a little · needs some good spells', earmark: { state: 'risk', sub: 'For the water bill · $138 spent elsewhere', amount: '$137' }, balance: ['$137', '.18'], toast: 'Mom was notified', history: [['Bad', 'clothing', 'Cart · 6 clothing items', 'Closet Cart · just now', '$275.00']].concat(BASE_HISTORY.slice(0, 4)) })));
-  S.parent = build('parent', () => parentScreen('15 Ramp Family · Mom’s view'));
-  S.explain = build('explain', () => explainerScreen('16 How Spellcheck decides'));
+  S.good = await build('good', () => verdictScreen({ name: '06 Good spell', v: 'good', mood: 'joy', mode: 'Before you pay', item: 'Weekly groceries · Greenleaf Market', amount: '$64.20', headline: 'Good spell.', msg: 'Feeding future you. Remy approves.', score: 96, us: 24, reasons: [['+', 'Essential · groceries'], ['+', '$124 left in groceries']], actions: [['Ink on lime', 'Pay $64.20']] }));
+  S.purpose = await build('purpose', () => verdictScreen({ name: '07 Good spell · on purpose', v: 'good', mood: 'joy', mode: 'Before you pay', item: 'Water bill · Metro Water', amount: '$275.00', headline: 'Good spell.', msg: 'Exactly what Mom sent it for. Remy is proud of you.', score: 99, us: 24, reasons: [['+', 'What Mom sent it for'], ['+', 'Essential · bills'], ['+', '$25 left in bills']], actions: [['Ink on lime', 'Pay $275.00']] }));
+  S.treat = await build('treat', () => verdictScreen({ name: '08 Earned it', v: 'meh', mood: 'meh', mode: 'Before you pay', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Earned it.', msg: 'Treat unlocked — you earned this one with good spells.', score: 62, us: 27, reasons: [['+', 'Treat unlocked · 2 charms'], ['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Primary', 'Pay $7.25'], ['Outline', 'Skip it']] }));
+  S.meh = await build('meh', () => verdictScreen({ name: '09 Meh', v: 'meh', mood: 'meh', mode: 'Before you pay', item: 'Dinner with friends · Sushi Ko', amount: '$38.40', headline: 'Hmm. Meh.', msg: 'Not great, not terrible. Maybe sleep on it?', score: 58, us: 23, reasons: [['−', '2nd eating out buy this week'], ['−', 'Nice-to-have · eating out'], ['+', '$16 left in eating out']], actions: [['Primary', 'Pay $38.40'], ['Outline', 'Skip it']] }));
+  S.bad = await build('bad', () => verdictScreen({ name: '10 Bad spell', v: 'bad', mood: 'sad', mode: 'Before you pay', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Bad spell.', msg: '3rd matcha this week. Remy is worried.', score: 29, us: 25, reasons: [['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Lime', 'Skip it · +1 charm'], ['Outline on ink', 'Pay anyway']] }));
+  S.earmark = await build('earmark', () => verdictScreen({ name: '11 Bad spell · Mom’s money', v: 'bad', mood: 'cry', mode: 'Before you pay', item: 'Cart · 6 clothing items · Closet Cart', amount: '$275.00', headline: 'Bad spell.', msg: 'That’s Mom’s money for the water bill.', score: 1, us: 39, reasons: [['−', 'Uses $138 of Mom’s water bill money'], ['−', 'Over clothing budget by $269'], ['−', 'Nice-to-have · clothing']], actions: [['Lime', 'Skip it · +1 charm'], ['Outline on ink', 'Pay anyway']] }));
+  S.paid = await build('paid', () => verdictScreen({ name: '12 Just paid · Apple Pay', v: 'bad', mood: 'sad', mode: 'Just paid', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Bad spell.', msg: '3rd matcha this week. Remy is so sad.', score: 18, us: 25, reasons: [['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Lime', 'Lesson learned']] }));
+  S.after = await build('after', () => home(Object.assign({}, HOME_BASE, { name: '13 Home · after a good spell', vibe: 84, charms: 1, streak: 1, mood: 'joy', moodLine: 'Thriving · on a roll', balance: ['$347', '.98'], toast: 'Good spell · +1 charm', history: [['Good', 'groceries', 'Weekly groceries', 'Greenleaf Market · just now', '$64.20']].concat(BASE_HISTORY.slice(0, 4)) })));
+  S.wilt = await build('wilt', () => home(Object.assign({}, HOME_BASE, { name: '14 Home · wilting', vibe: 28, mood: 'sad', moodLine: 'Wilting a little · needs some good spells', earmark: { state: 'risk', sub: 'For the water bill · $138 spent elsewhere', amount: '$137' }, balance: ['$137', '.18'], toast: 'Mom was notified', history: [['Bad', 'clothing', 'Cart · 6 clothing items', 'Closet Cart · just now', '$275.00']].concat(BASE_HISTORY.slice(0, 4)) })));
+  S.parent = await build('parent', () => parentScreen('15 Ramp Family · Mom’s view'));
+  S.explain = await build('explain', () => explainerScreen('16 How Spellcheck decides'));
 
   // lay the flows out in rows
   const rows = [
@@ -1323,12 +1336,24 @@ async function buildComponentsPage(page) {
   });
 }
 
-function flowDiagram(S) {
-  // small copies of key screens joined by arrows
+// A flat picture of a screen: one layer instead of a few hundred. Falls back to a real copy.
+async function snapshot(f, scale) {
+  try {
+    const bytes = await f.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: Math.min(2, scale * 2.5) } });
+    const r = figma.createRectangle();
+    r.name = 'Snapshot · ' + f.name; r.resize(W * scale, H * scale);
+    r.fills = [{ type: 'IMAGE', imageHash: figma.createImage(bytes).hash, scaleMode: 'FILL' }];
+    r.cornerRadius = 8; r.strokes = [paint('line')]; r.strokeWeight = 1; r.strokeAlign = 'INSIDE';
+    return r;
+  } catch (e) { warnOnce('Snapshots', e); const c = f.clone(); scaleTo(c, scale); return c; }
+}
+async function flowDiagram(S) {
+  // small pictures of key screens joined by arrows
   const wrap = frame('User flow', { dir: 'none', w: 1472, h: 740 });
   const scale = 0.3, sw = W * scale, sh = H * scale;
+  const jobs = [];
   const place = (f, x, y, label) => {
-    const c = f.clone(); wrap.appendChild(c); c.rescale(scale); c.x = x; c.y = y; c.name = 'Flow · ' + f.name;
+    jobs.push(snapshot(f, scale).then(c => { wrap.appendChild(c); c.x = x; c.y = y; }));
     const t = text(label, 'Caption/Strong'); wrap.appendChild(t); t.x = x; t.y = y + sh + 10;
     return { x: x, y: y };
   };
@@ -1354,11 +1379,13 @@ function flowDiagram(S) {
   arrow(wrap, 1200 - 14, bottom + mid, 960 + sw + 14, bottom + mid);
   const note = text('Casting resolves to good, meh or bad in about 25 µs; the reaction lands with sound, colour and motion.', 'Caption', { color: 'muted', w: 240 });
   wrap.appendChild(note); note.x = 440; note.y = top + sh + 40;
+  await Promise.all(jobs);
   return wrap;
 }
 
 async function buildCaseStudy(page, S) {
   await figma.setCurrentPageAsync(page);
+  const flow = await flowDiagram(S);
   const sec = (eyebrow, title, body, kids, bg) => frame(eyebrow, { w: 1600, pad: [96, 64], gap: 28, bg: bg || 'paper', r: 32, stroke: bg === 'ink' ? undefined : 'line' }, [
     text(eyebrow, 'Label/Caps', { color: bg === 'ink' ? 'lime' : 'muted' }),
     text(title, 'Display/Hero', { color: bg === 'ink' ? 'white' : 'ink', w: 1300 }),
@@ -1400,7 +1427,7 @@ async function buildCaseStudy(page, S) {
         loopStep('05', 'Next choice', 'Charms unlock treats; repeat buys get flagged sooner.', 'bg', 'ink'),
       ]),
     ]),
-    sec('User flow', 'From tap to reaction in under two seconds.', null, [flowDiagram(S)]),
+    sec('User flow', 'From tap to reaction in under two seconds.', null, [flow]),
     sec('Ramp Family', 'A new consumer door, the same mission.', 'Ramp saves businesses time and money by catching spend in the moment. Ramp Family does it for households: parents send money with a purpose, kids get instant feedback, and good habits form before the first credit card.', [
       row('Family', { gap: 24, cross: 'MIN' }, [
         (() => { const c = S.parent.root.clone(); c.name = 'Family · Mom’s view'; return c; })(),
@@ -1480,11 +1507,17 @@ const PANEL = `<!doctype html><meta charset="utf-8">
   };
   document.getElementById('copy').onclick = () => { const b = document.getElementById('buf'); b.value = lines.join('\n'); b.select(); document.execCommand('copy'); document.getElementById('copy').textContent = 'Copied'; };
   document.getElementById('close').onclick = () => parent.postMessage({ pluginMessage: { type: 'close' } }, '*');
+  parent.postMessage({ pluginMessage: { type: 'ready' } }, '*');
 </script>`;
 
 async function main() {
   figma.skipInvisibleInstanceChildren = true;
   figma.showUI(PANEL, { width: 380, height: 470, title: 'Spellbound' });
+  await new Promise(res => {
+    let ready = false; const go = () => { if (!ready) { ready = true; res(); } };
+    setTimeout(go, 2000);
+    figma.ui.onmessage = m => { if (m && m.type === 'ready') go(); };
+  });
   figma.ui.onmessage = m => { if (m && m.type === 'close') figma.closePlugin(); };
   log('info', 'Checking the file…');
   // three pages, so it works on every Figma plan (Starter allows three per file)
