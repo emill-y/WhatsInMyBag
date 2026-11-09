@@ -67,9 +67,12 @@ const TS = {
 // Every step reports to a panel in Figma. A failing step is logged and skipped so the rest still builds.
 const LOG = [], SEEN = {};
 const errText = e => (e && e.message ? e.message : String(e));
+const TOTAL_STEPS = 41;
+let done = 0;
 function log(kind, msg) {
   LOG.push(kind.toUpperCase() + '  ' + msg);
-  try { figma.ui.postMessage({ type: 'log', kind: kind, msg: msg }); } catch (e) { /* panel not open */ }
+  if (kind !== 'info') done++;
+  try { figma.ui.postMessage({ type: 'log', kind: kind, msg: msg, progress: Math.min(99, Math.round(done / TOTAL_STEPS * 100)) }); } catch (e) { /* panel not open */ }
 }
 function warnOnce(where, e) {
   const k = where + ':' + errText(e);
@@ -280,7 +283,9 @@ const after = (frameNode, dest, seconds, transition) => go(frameNode, dest, tran
 
 async function flushStyles() {
   const q = STYLE_QUEUE.splice(0);
-  for (const [t, id] of q) { if (!t.removed) { try { await t.setTextStyleIdAsync(id); } catch (e) { warnOnce('Text styles', e); } } }
+  for (let i = 0; i < q.length; i += 150) {
+    await Promise.all(q.slice(i, i + 150).map(([t, id]) => t.removed ? null : t.setTextStyleIdAsync(id).catch(e => warnOnce('Text styles', e))));
+  }
 }
 async function flushReactions() {
   const byNode = new Map();
@@ -1453,12 +1458,12 @@ const PANEL = `<!doctype html><meta charset="utf-8">
   button.primary { background: #0B0B0A; color: #D4F53C; }
   textarea { position: absolute; left: -9999px; }
 </style>
-<header><h1>Spellbound · building your file</h1><div id="status">Starting…</div></header>
+<header><h1>Spellbound · building your file <span id="pct" style="float:right;color:#686760;font-weight:500">0%</span></h1><div id="status">Starting… this takes a few minutes; keep this file open.</div><div style="height:4px;border-radius:9px;background:#E8E6DF;margin-top:10px;overflow:hidden"><div id="bar" style="height:100%;width:0;background:#0B0B0A;transition:width .3s"></div></div></header>
 <ul id="log"></ul>
 <footer><button class="primary" id="copy">Copy log</button><button id="close">Close</button></footer>
 <textarea id="buf"></textarea>
 <script>
-  const log = document.getElementById('log'), status = document.getElementById('status'), lines = [];
+  const log = document.getElementById('log'), status = document.getElementById('status'), bar = document.getElementById('bar'), pct = document.getElementById('pct'), lines = [];
   onmessage = e => {
     const m = e.data.pluginMessage; if (!m) return;
     if (m.type === 'log') {
@@ -1467,14 +1472,16 @@ const PANEL = `<!doctype html><meta charset="utf-8">
       li.innerHTML = '<b>' + (m.kind === 'ok' ? '✓' : m.kind === 'warn' ? '!' : m.kind === 'error' ? '✕' : '·') + '</b><span></span>';
       li.lastChild.textContent = m.msg; log.appendChild(li); log.scrollTop = log.scrollHeight;
       if (m.kind === 'info') status.textContent = m.msg;
+      if (m.progress != null) { bar.style.width = m.progress + '%'; pct.textContent = m.progress + '%'; }
     }
-    if (m.type === 'done') { status.textContent = m.summary; status.className = m.ok ? '' : 'error'; }
+    if (m.type === 'done') { status.textContent = m.summary; status.className = m.ok ? '' : 'error'; bar.style.width = '100%'; pct.textContent = '100%'; }
   };
   document.getElementById('copy').onclick = () => { const b = document.getElementById('buf'); b.value = lines.join('\n'); b.select(); document.execCommand('copy'); document.getElementById('copy').textContent = 'Copied'; };
   document.getElementById('close').onclick = () => parent.postMessage({ pluginMessage: { type: 'close' } }, '*');
 </script>`;
 
 async function main() {
+  figma.skipInvisibleInstanceChildren = true;
   figma.showUI(PANEL, { width: 380, height: 470, title: 'Spellbound' });
   figma.ui.onmessage = m => { if (m && m.type === 'close') figma.closePlugin(); };
   log('info', 'Checking the file…');
@@ -1512,7 +1519,8 @@ async function main() {
   if (cover) figma.viewport.scrollAndZoomIntoView([cover]);
 
   const errors = LOG.filter(l => l.indexOf('ERROR') === 0).length, warns = LOG.filter(l => l.indexOf('WARN') === 0).length;
-  const summary = errors ? `Built with ${errors} problem${errors > 1 ? 's' : ''}. Copy the log and send it over.` : warns ? `Built. ${warns} small warning${warns > 1 ? 's' : ''}; see below.` : 'Built. Open the Prototype page and press Present.';
+  const where = 'Three pages, in the Pages list at the top left: Cover & story, Design system, Prototype. To click through, open Prototype and press Present.';
+  const summary = (errors ? `Built with ${errors} problem${errors > 1 ? 's' : ''} — copy the log and send it over. ` : warns ? `Built (${warns} small warning${warns > 1 ? 's' : ''}). ` : 'Built. ') + where;
   figma.ui.postMessage({ type: 'done', ok: !errors, summary: summary });
   figma.notify(summary, { timeout: 8000 });
 }
