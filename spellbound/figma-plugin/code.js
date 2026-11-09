@@ -1478,7 +1478,7 @@ const PANEL = `<!doctype html><meta charset="utf-8">
   header { padding: 14px 16px 10px; border-bottom: 1px solid #E4E2DA; }
   h1 { margin: 0; font-size: 14px; font-weight: 600; }
   #status { color: #686760; margin-top: 2px; }
-  #log { list-style: none; margin: 0; padding: 8px 16px; height: 330px; overflow: auto; }
+  #log { list-style: none; margin: 0; padding: 8px 16px; height: 270px; overflow: auto; }
   #log li { display: flex; gap: 8px; padding: 3px 0; }
   #log li b { width: 14px; flex: none; text-align: center; }
   .ok b { color: #6E8A00; } .warn b { color: #8A6A00; } .error b, .error { color: #B42318; }
@@ -1489,7 +1489,13 @@ const PANEL = `<!doctype html><meta charset="utf-8">
 </style>
 <header><h1>Spellbound · building your file <span id="pct" style="float:right;color:#686760;font-weight:500">0%</span></h1><div id="status">Starting… this takes a few minutes; keep this file open.</div><div style="height:4px;border-radius:9px;background:#E8E6DF;margin-top:10px;overflow:hidden"><div id="bar" style="height:100%;width:0;background:#0B0B0A;transition:width .3s"></div></div></header>
 <ul id="log"></ul>
-<footer><button class="primary" id="copy">Copy log</button><button id="close">Close</button></footer>
+<nav id="pages" style="display:none;padding:10px 16px 0;border-top:1px solid #E4E2DA">
+  <div style="color:#686760;margin-bottom:6px">Open a page</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <button data-page="Prototype" class="primary">Prototype</button><button data-page="Design system">Design system</button><button data-page="Cover & story">Cover & story</button>
+  </div>
+</nav>
+<footer><button id="copy">Copy log</button><button id="close">Close</button></footer>
 <textarea id="buf"></textarea>
 <script>
   const log = document.getElementById('log'), status = document.getElementById('status'), bar = document.getElementById('bar'), pct = document.getElementById('pct'), lines = [];
@@ -1503,10 +1509,11 @@ const PANEL = `<!doctype html><meta charset="utf-8">
       if (m.kind === 'info') status.textContent = m.msg;
       if (m.progress != null) { bar.style.width = m.progress + '%'; pct.textContent = m.progress + '%'; }
     }
-    if (m.type === 'done') { status.textContent = m.summary; status.className = m.ok ? '' : 'error'; bar.style.width = '100%'; pct.textContent = '100%'; }
+    if (m.type === 'done') { status.textContent = m.summary; status.className = m.ok ? '' : 'error'; bar.style.width = '100%'; pct.textContent = '100%'; document.getElementById('pages').style.display = 'block'; }
   };
   document.getElementById('copy').onclick = () => { const b = document.getElementById('buf'); b.value = lines.join('\n'); b.select(); document.execCommand('copy'); document.getElementById('copy').textContent = 'Copied'; };
   document.getElementById('close').onclick = () => parent.postMessage({ pluginMessage: { type: 'close' } }, '*');
+  for (const b of document.querySelectorAll('[data-page]')) b.onclick = () => parent.postMessage({ pluginMessage: { type: 'goto', page: b.dataset.page } }, '*');
   parent.postMessage({ pluginMessage: { type: 'ready' } }, '*');
 </script>`;
 
@@ -1518,7 +1525,14 @@ async function main() {
     setTimeout(go, 2000);
     figma.ui.onmessage = m => { if (m && m.type === 'ready') go(); };
   });
-  figma.ui.onmessage = m => { if (m && m.type === 'close') figma.closePlugin(); };
+  figma.ui.onmessage = async m => {
+    if (!m) return;
+    if (m.type === 'close') figma.closePlugin();
+    if (m.type === 'goto') {
+      const p = figma.root.children.filter(x => x.name === m.page)[0];
+      if (p) { await figma.setCurrentPageAsync(p); if (p.children.length) figma.viewport.scrollAndZoomIntoView(p.children); }
+    }
+  };
   log('info', 'Checking the file…');
   // three pages, so it works on every Figma plan (Starter allows three per file)
   const existing = figma.root.children.slice();
@@ -1550,11 +1564,11 @@ async function main() {
   log(links ? 'ok' : 'warn', 'Prototype links · ' + links);
   try { pages.proto.flowStartingPoints = S.flows.filter(f => f.node && !f.node.removed).map(f => ({ nodeId: f.node.id, name: f.name })); log('ok', 'Flows · ' + S.flows.length); } catch (e) { log('error', 'Flows — ' + errText(e)); }
   if (cover) { try { await figma.setFileThumbnailNodeAsync(cover); } catch (e) { /* thumbnails need edit access */ } }
-  await figma.setCurrentPageAsync(pages.story);
-  if (cover) figma.viewport.scrollAndZoomIntoView([cover]);
+  await figma.setCurrentPageAsync(pages.proto);
+  if (pages.proto.children.length) figma.viewport.scrollAndZoomIntoView(pages.proto.children);
 
   const errors = LOG.filter(l => l.indexOf('ERROR') === 0).length, warns = LOG.filter(l => l.indexOf('WARN') === 0).length;
-  const where = 'Three pages, in the Pages list at the top left: Cover & story, Design system, Prototype. To click through, open Prototype and press Present.';
+  const where = 'You’re on the Prototype page. Use the buttons below (or the Pages list, top left) to see the Design system and the Cover & story. To click through, press Present.';
   const summary = (errors ? `Built with ${errors} problem${errors > 1 ? 's' : ''} — copy the log and send it over. ` : warns ? `Built (${warns} small warning${warns > 1 ? 's' : ''}). ` : 'Built. ') + where;
   figma.ui.postMessage({ type: 'done', ok: !errors, summary: summary });
   figma.notify(summary, { timeout: 8000 });
