@@ -65,6 +65,27 @@ const TS = {
   'Deck/Small': { f: 'reg', size: 18, lh: 130, use: 'Footnotes' },
 };
 
+// ---------- progress panel and guarded steps ----------
+// Every step reports to a panel in Figma. A failing step is logged and skipped so the rest still builds.
+const LOG = [], SEEN = {};
+const errText = e => (e && e.message ? e.message : String(e));
+function log(kind, msg) {
+  LOG.push(kind.toUpperCase() + '  ' + msg);
+  try { figma.ui.postMessage({ type: 'log', kind: kind, msg: msg }); } catch (e) { /* panel not open */ }
+}
+function warnOnce(where, e) {
+  const k = where + ':' + errText(e);
+  if (SEEN[k]) return; SEEN[k] = 1;
+  log('warn', where + ' — ' + errText(e));
+}
+async function step(name, fn) {
+  try { const r = await fn(); log('ok', name); return r; } catch (e) { log('error', name + ' — ' + errText(e)); console.error(e); return null; }
+}
+// run a factory; if it fails, log once and return a plain placeholder so the screen still lays out
+function safe(name, fn, w, h) {
+  try { return fn(); } catch (e) { warnOnce(name, e); return frame(name + ' (fallback)', { w: w || 120, h: h || 40, r: 12, bg: 'seg' }); }
+}
+
 // ---------- small utilities ----------
 const V = {}, HEX = {}, NUMV = {}, STYLE = {}, F = {};
 const WANT = new Map();
@@ -75,7 +96,9 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 function paint(key, opacity) {
   if (!V[key]) throw new Error('Unknown colour token ' + key);
-  const p = figma.variables.setBoundVariableForPaint({ type: 'SOLID', color: rgb(HEX[key]) }, 'color', V[key]);
+  let p;
+  try { p = figma.variables.setBoundVariableForPaint({ type: 'SOLID', color: rgb(HEX[key]) }, 'color', V[key]); }
+  catch (e) { warnOnce('Colour variables', e); p = { type: 'SOLID', color: rgb(HEX[key]) }; }
   return opacity != null && opacity < 1 ? Object.assign({}, p, { opacity: opacity }) : p;
 }
 const raw = (hex, opacity) => ({ type: 'SOLID', color: rgb(hex), opacity: opacity == null ? 1 : opacity });
@@ -95,20 +118,29 @@ function stroke(node, key, opacity, weight) {
 function want(node, o) { WANT.set(node.id, Object.assign(WANT.get(node.id) || {}, o)); return node; }
 const isAuto = n => n && n.layoutMode && n.layoutMode !== 'NONE';
 
-// Append and apply the sizing the child asked for (FILL only works inside auto layout).
+// Append only. Sizing (FILL / grow) is applied later by settle(), top-down, once the parent has its own size.
 function add(parent, child) {
   parent.appendChild(child);
   const s = WANT.get(child.id);
-  if (s && isAuto(parent)) {
-    if (s.abs) child.layoutPositioning = 'ABSOLUTE';
-    else {
-      if (s.w) child.layoutSizingHorizontal = s.w;
-      if (s.h) child.layoutSizingVertical = s.h;
-      if (s.grow) { if (parent.layoutMode === 'VERTICAL') child.layoutSizingVertical = 'FILL'; else child.layoutSizingHorizontal = 'FILL'; }
-      if (s.w === 'FILL' && child.type === 'TEXT') child.textAutoResize = 'HEIGHT';
-    }
-  }
+  if (s && s.abs && isAuto(parent)) child.layoutPositioning = 'ABSOLUTE';
   return child;
+}
+// Apply the sizing every descendant asked for, parents before children, the order Figma expects.
+function settle(node) {
+  if (!node || !node.children || node.type === 'INSTANCE') return node;
+  for (const k of node.children) {
+    const s = WANT.get(k.id);
+    if (s && !s.abs && isAuto(node)) {
+      try {
+        if (s.w) k.layoutSizingHorizontal = s.w;
+        if (s.h) k.layoutSizingVertical = s.h;
+        if (s.grow) { if (node.layoutMode === 'VERTICAL') k.layoutSizingVertical = 'FILL'; else k.layoutSizingHorizontal = 'FILL'; }
+        if (k.type === 'TEXT' && (s.w === 'FILL' || (s.grow && node.layoutMode === 'HORIZONTAL'))) k.textAutoResize = 'HEIGHT';
+      } catch (e) { warnOnce('Sizing', e); }
+    }
+    settle(k);
+  }
+  return node;
 }
 // an absolutely positioned layer behind everything else, centred and pinned to the centre
 function behind(parent, node) {
@@ -237,6 +269,7 @@ const T = {
   back: { type: 'PUSH', direction: 'RIGHT', matchLayers: false, easing: { type: 'EASE_IN_AND_OUT' }, duration: 0.35 },
 };
 function go(node, dest, transition, trigger) {
+  if (!node || !dest) return;
   REACT.push({
     node: node,
     reaction: {
@@ -249,20 +282,22 @@ const after = (frameNode, dest, seconds, transition) => go(frameNode, dest, tran
 
 async function flushStyles() {
   const q = STYLE_QUEUE.splice(0);
-  for (const [t, id] of q) { if (!t.removed) await t.setTextStyleIdAsync(id); }
+  for (const [t, id] of q) { if (!t.removed) { try { await t.setTextStyleIdAsync(id); } catch (e) { warnOnce('Text styles', e); } } }
 }
 async function flushReactions() {
   const byNode = new Map();
   for (const r of REACT) { const k = r.node.id; if (!byNode.has(k)) byNode.set(k, { node: r.node, list: [] }); byNode.get(k).list.push(r.reaction); }
-  for (const { node, list } of byNode.values()) await node.setReactionsAsync(list);
+  let n = 0;
+  for (const { node, list } of byNode.values()) { try { await node.setReactionsAsync(list); n += list.length; } catch (e) { warnOnce('Prototype links', e); } }
+  return n;
 }
 async function flushArrows() {
   for (const a of ARROWS.splice(0)) {
-    await a.v.setVectorNetworkAsync({
+    try { await a.v.setVectorNetworkAsync({
       vertices: [{ x: 0, y: 0 }, { x: a.dx, y: a.dy, strokeCap: 'ARROW_LINES' }],
       segments: [{ start: 0, end: 1 }],
       regions: [],
-    });
+    }); } catch (e) { warnOnce('Flow arrows', e); }
   }
 }
 function arrow(parent, x1, y1, x2, y2, key) {
@@ -366,12 +401,34 @@ function makeIcons() {
   }
   for (const k of Object.keys(C.icon)) C.icon[k].description = 'Line icon, 1.6 stroke on a 24 grid. Recolour with a token.';
 }
+// Set instance properties; if Figma rejects the set, fall back to variants one by one and
+// to setting text, visibility and swaps directly on the named layers.
+function setProps(inst, props, byLayer) {
+  try { inst.setProperties(props); return inst; } catch (e) { warnOnce('Component properties', e); }
+  for (const k of Object.keys(props)) {
+    if (k.indexOf('#') >= 0) continue;
+    try { const o = {}; o[k] = props[k]; inst.setProperties(o); } catch (e) { /* keep the default variant */ }
+  }
+  for (const [layer, v] of byLayer || []) {
+    const n = inst.findOne(x => x.name === layer);
+    if (!n) continue;
+    try {
+      if (typeof v === 'string' && n.type === 'TEXT') n.characters = v;
+      else if (typeof v === 'boolean') n.visible = v;
+      else if (v && v.type === 'COMPONENT' && n.type === 'INSTANCE') n.swapComponent(v);
+    } catch (e) { /* leave the layer as it is */ }
+  }
+  return inst;
+}
+function scaleTo(node, s) { try { node.rescale(s); } catch (e) { node.resize(node.width * s, node.height * s); } }
 function icon(k, size, colorKey) {
-  const i = C.icon[k].createInstance();
-  i.name = 'Icon · ' + k;
-  if (size && size !== 24) i.rescale(size / 24);
-  if (colorKey) tint(i, colorKey);
-  return i;
+  return safe('Icon', () => {
+    const i = C.icon[k].createInstance();
+    i.name = 'Icon · ' + k;
+    if (size && size !== 24) scaleTo(i, size / 24);
+    if (colorKey) tint(i, colorKey);
+    return i;
+  }, size || 24, size || 24);
 }
 
 function makeRemy() {
@@ -393,11 +450,13 @@ function makeRemy() {
   C.remy = set;
 }
 function remy(mood, size) {
-  const i = C.remy.defaultVariant.createInstance();
-  i.setProperties({ Mood: MOODS.filter(m => m[0] === mood)[0][1] });
-  i.name = 'Remy · ' + mood;
-  if (size && size !== 220) i.rescale(size / 220);
-  return i;
+  return safe('Remy', () => {
+    const i = C.remy.defaultVariant.createInstance();
+    setProps(i, { Mood: MOODS.filter(m => m[0] === mood)[0][1] });
+    i.name = 'Remy · ' + mood;
+    if (size && size !== 220) scaleTo(i, size / 220);
+    return i;
+  }, size || 220, size || 220);
 }
 function arrangeSet(set, dir, gap, backdrop) {
   set.layoutMode = dir === 'h' ? 'HORIZONTAL' : 'VERTICAL';
@@ -427,20 +486,21 @@ function asComponent(f, name) {
   const c = figma.createComponent();
   c.name = name;
   c.layoutMode = f.layoutMode;
-  for (const k of ['itemSpacing', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'primaryAxisAlignItems', 'counterAxisAlignItems', 'fills', 'strokes', 'strokeWeight', 'strokeAlign', 'cornerRadius', 'clipsContent', 'effects']) c[k] = f[k];
+  // copy appearance; shorthand values can be figma.mixed when sides differ, so copy the sides instead
+  for (const k of ['itemSpacing', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'primaryAxisAlignItems', 'counterAxisAlignItems', 'fills', 'strokes', 'strokeAlign', 'clipsContent', 'effects']) {
+    if (f[k] !== figma.mixed) c[k] = f[k];
+  }
+  for (const k of ['strokeTopWeight', 'strokeRightWeight', 'strokeBottomWeight', 'strokeLeftWeight', 'topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius']) {
+    if (typeof f[k] === 'number') c[k] = f[k];
+  }
   for (const b of ['itemSpacing', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']) bindNumber(c, b, f[b], 's');
-  for (const b of ['topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius']) bindNumber(c, b, f.cornerRadius, 'r');
+  if (typeof f.cornerRadius === 'number') for (const b of ['topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius']) bindNumber(c, b, f.cornerRadius, 'r');
   c.layoutSizingHorizontal = 'HUG'; c.layoutSizingVertical = 'HUG';
   if (f.layoutSizingHorizontal === 'FIXED') { c.resize(f.width, Math.max(c.height, 1)); c.layoutSizingHorizontal = 'FIXED'; }
   if (f.layoutSizingVertical === 'FIXED') { c.resize(c.width, f.height); c.layoutSizingVertical = 'FIXED'; }
-  for (const k of f.children.slice()) {
-    const s = WANT.get(k.id);
-    c.appendChild(k);
-    if (s && !s.abs) { if (s.w) k.layoutSizingHorizontal = s.w; if (s.h) k.layoutSizingVertical = s.h; if (s.grow) { if (c.layoutMode === 'VERTICAL') k.layoutSizingVertical = 'FILL'; else k.layoutSizingHorizontal = 'FILL'; } }
-    if (s && s.w === 'FILL' && k.type === 'TEXT') k.textAutoResize = 'HEIGHT';
-  }
+  for (const k of f.children.slice()) c.appendChild(k);
   f.remove();
-  return c;
+  return settle(c);
 }
 
 function makeButtons() {
@@ -468,12 +528,15 @@ function makeButtons() {
 }
 function button(style, label, o) {
   o = o || {};
-  const i = C.button.set.defaultVariant.createInstance();
-  const props = { Style: style };
-  props[C.button.label] = label;
-  props[C.button.icon] = !!o.icon;
-  i.setProperties(props);
-  i.name = 'Button · ' + label;
+  const i = safe('Button', () => {
+    const b = C.button.set.defaultVariant.createInstance();
+    const props = { Style: style };
+    props[C.button.label] = label;
+    props[C.button.icon] = !!o.icon;
+    setProps(b, props, [['Label', label], ['Icon', !!o.icon]]);
+    b.name = 'Button · ' + label;
+    return b;
+  }, 180, 56);
   if (o.fill) want(i, { w: 'FILL' });
   return i;
 }
@@ -489,10 +552,12 @@ function makePill() {
   C.pill = { set: set, label: textProp(set, comps, 'Label', 'Label', 'Lvl 3') };
 }
 function pill(label, tone) {
-  const i = C.pill.set.defaultVariant.createInstance();
-  const p = { Tone: tone || 'Lime' }; p[C.pill.label] = label;
-  i.setProperties(p); i.name = 'Pill · ' + label;
-  return i;
+  return safe('Pill', () => {
+    const i = C.pill.set.defaultVariant.createInstance();
+    const p = { Tone: tone || 'Lime' }; p[C.pill.label] = label;
+    setProps(i, p, [['Label', label]]); i.name = 'Pill · ' + label;
+    return i;
+  }, 64, 28);
 }
 
 function makeStatusBar() {
@@ -520,11 +585,11 @@ function makeStatusBar() {
 }
 
 function makeLogo() {
-  const mark = frame('Mark', { w: 28, h: 28, r: 8, bg: 'ink', main: 'CENTER', cross: 'CENTER' }, [icon('wand', 16, 'lime')]);
-  C.mark = asComponent(mark, 'Logo/Mark');
+  const markFrame = frame('Mark', { w: 28, h: 28, r: 8, bg: 'ink', main: 'CENTER', cross: 'CENTER' }, [icon('wand', 16, 'lime')]);
+  C.mark = asComponent(markFrame, 'Logo/Mark');
   C.mark.description = 'App mark: a star wand with the card inside it.';
   const lock = row('Lockup', { gap: 8, cross: 'CENTER' }, [
-    C.mark.createInstance(),
+    mark(),
     text('Spellbound', 'Title/M', { name: 'Wordmark' }),
     text('Ramp Family', 'Caption', { color: 'muted', name: 'Endorsement' }),
   ]);
@@ -538,9 +603,8 @@ function makeRows() {
     frame('Text', { gap: 2, grow: true }, [text('Weekly groceries', 'Body/M', { name: 'Title' }), text('Greenleaf Market · Groceries', 'Caption', { color: 'muted', name: 'Subtitle' })]),
     text('$64.20', 'Body/M strong', { name: 'Amount' }),
   ]);
-  p.strokes = [paint('line')]; p.strokeTopWeight = 1; p.strokeBottomWeight = 0; p.strokeLeftWeight = 0; p.strokeRightWeight = 0; p.strokeAlign = 'INSIDE';
   const pc = asComponent(p, 'Row/Purchase');
-  pc.strokes = [paint('line')]; pc.strokeTopWeight = 1; pc.strokeBottomWeight = 0; pc.strokeLeftWeight = 0; pc.strokeRightWeight = 0;
+  pc.strokes = [paint('line')]; pc.strokeAlign = 'INSIDE'; pc.strokeTopWeight = 1; pc.strokeBottomWeight = 0; pc.strokeLeftWeight = 0; pc.strokeRightWeight = 0;
   pc.description = 'Transaction-style row. Swap the icon, set title, subtitle and amount.';
   C.rowP = { comp: pc, title: textProp(pc, [pc], 'Title', 'Title', 'Weekly groceries'), sub: textProp(pc, [pc], 'Subtitle', 'Subtitle', 'Greenleaf Market · Groceries'), amount: textProp(pc, [pc], 'Amount', 'Amount', '$64.20'), icon: swapProp(pc, [pc], 'Icon', 'Icon', C.icon.groceries) };
 
@@ -567,15 +631,21 @@ function makeRows() {
   C.rowS = { set: set, title: textProp(set, comps, 'Title', 'Title', 'Iced oat matcha'), sub: textProp(set, comps, 'Subtitle', 'Subtitle', 'Matcha Moon · 1d ago'), amount: textProp(set, comps, 'Amount', 'Amount', '$7.25'), icon: swapProp(set, comps, 'Icon', 'Icon', C.icon.coffee) };
 }
 function purchaseRow(cat, title, sub, amount) {
-  const i = C.rowP.comp.createInstance();
-  const p = {}; p[C.rowP.title] = title; p[C.rowP.sub] = sub; p[C.rowP.amount] = amount; p[C.rowP.icon] = C.icon[cat].id;
-  i.setProperties(p); i.name = 'Row · ' + title;
+  const i = safe('Row/Purchase', () => {
+    const r = C.rowP.comp.createInstance();
+    const p = {}; p[C.rowP.title] = title; p[C.rowP.sub] = sub; p[C.rowP.amount] = amount; p[C.rowP.icon] = C.icon[cat].id;
+    setProps(r, p, [['Title', title], ['Subtitle', sub], ['Amount', amount], ['Icon', C.icon[cat]]]); r.name = 'Row · ' + title;
+    return r;
+  }, 361, 58);
   return want(i, { w: 'FILL' });
 }
 function spellRow(verdict, cat, title, sub, amount) {
-  const i = C.rowS.set.defaultVariant.createInstance();
-  const p = { Verdict: verdict }; p[C.rowS.title] = title; p[C.rowS.sub] = sub; p[C.rowS.amount] = amount; p[C.rowS.icon] = C.icon[cat].id;
-  i.setProperties(p); i.name = 'Spell · ' + title;
+  const i = safe('Row/Spell', () => {
+    const r = C.rowS.set.defaultVariant.createInstance();
+    const p = { Verdict: verdict }; p[C.rowS.title] = title; p[C.rowS.sub] = sub; p[C.rowS.amount] = amount; p[C.rowS.icon] = C.icon[cat].id;
+    setProps(r, p, [['Title', title], ['Subtitle', sub], ['Amount', amount], ['Icon', C.icon[cat]]]); r.name = 'Spell · ' + title;
+    return r;
+  }, 361, 60);
   return want(i, { w: 'FILL' });
 }
 
@@ -624,11 +694,17 @@ function makeSmallComponents() {
   nc.description = 'Arrives the moment a card is tapped. Tapping it opens the verdict.';
   C.notif = { comp: nc, title: textProp(nc, [nc], 'Title', 'Title', 'Matcha Moon · $7.25'), body: textProp(nc, [nc], 'Body', 'Body', 'Paid with Apple Pay. Tap to see Remy.') };
 }
-const stat = (label, value) => { const i = C.stat.comp.createInstance(); const p = {}; p[C.stat.label] = label; p[C.stat.value] = String(value); i.setProperties(p); i.name = 'Stat · ' + label; return i; };
-const field = ph => { const i = C.field.comp.createInstance(); const p = {}; p[C.field.ph] = ph; i.setProperties(p); return i; };
-const toast = label => { const i = C.toast.comp.createInstance(); const p = {}; p[C.toast.label] = label; i.setProperties(p); i.name = 'Toast'; return i; };
-const statusBar = theme => { const i = C.status.defaultVariant.createInstance(); i.setProperties({ Theme: theme }); i.name = 'Status bar'; return i; };
-const indicator = theme => { const i = C.indicator.defaultVariant.createInstance(); i.setProperties({ Theme: theme }); i.name = 'Home indicator'; return i; };
+const inst = (name, fn, w, h) => safe(name, fn, w, h);
+const stat = (label, value) => inst('Stat tile', () => { const i = C.stat.comp.createInstance(); const p = {}; p[C.stat.label] = label; p[C.stat.value] = String(value); setProps(i, p, [['Label', label], ['Value', String(value)]]); i.name = 'Stat · ' + label; return i; }, 82, 56);
+const field = ph => inst('Field', () => { const i = C.field.comp.createInstance(); const p = {}; p[C.field.ph] = ph; setProps(i, p, [['Placeholder', ph]]); return i; }, 160, 52);
+const toast = label => inst('Toast', () => { const i = C.toast.comp.createInstance(); const p = {}; p[C.toast.label] = label; setProps(i, p, [['Label', label]]); i.name = 'Toast'; return i; }, 200, 42);
+const statusBar = theme => inst('Status bar', () => { const i = C.status.defaultVariant.createInstance(); setProps(i, { Theme: theme }); i.name = 'Status bar'; return i; }, W, 54);
+const indicator = theme => inst('Home indicator', () => { const i = C.indicator.defaultVariant.createInstance(); setProps(i, { Theme: theme }); i.name = 'Home indicator'; return i; }, W, 34);
+const lockup = () => inst('Logo', () => C.lockup.createInstance(), 200, 28);
+const mark = () => inst('Logo mark', () => C.mark.createInstance(), 28, 28);
+const segControl = () => inst('Segmented control', () => { const i = C.seg.defaultVariant.createInstance(); i.name = 'Segmented control'; return i; }, 361, 46);
+const castGo = () => inst('Cast button', () => C.castGo.createInstance(), 52, 52);
+const notifBanner = () => inst('Notification', () => { const i = C.notif.comp.createInstance(); i.name = 'Notification'; return i; }, 377, 76);
 
 // ---------- screen building blocks ----------
 function screen(name, bg) {
@@ -688,7 +764,7 @@ function home(o) {
   const av = avatar('JK');
   const em = o.earmark;
   const content = frame('Content', { w: W, pad: [58, 16, 48, 16], gap: 12 }, [
-    row('Header', { fill: true, h: 44, main: 'SPACE_BETWEEN', cross: 'CENTER' }, [C.lockup.createInstance(), av]),
+    row('Header', { fill: true, h: 44, main: 'SPACE_BETWEEN', cross: 'CENTER' }, [lockup(), av]),
     frame('Pet stage', { fill: true, bg: 'ink', r: 24, pad: [18, 18, 16, 18], gap: 6 }, [
       row('Stage head', { fill: true, main: 'SPACE_BETWEEN' }, [
         frame('Name', { gap: 6 }, [text('Remy', 'Display/Name', { color: 'white' }), text(o.moodLine, 'Caption', { color: 'muted-ink' })]),
@@ -717,7 +793,7 @@ function home(o) {
     how,
     row('Footer', { fill: true, pad: [10, 0, 0, 0], main: 'CENTER' }, [text('Instant feedback beats hindsight.', 'Caption', { color: 'muted' })]),
   ]);
-  root.appendChild(content); content.x = 0; content.y = 0;
+  settle(content); root.appendChild(content); content.x = 0; content.y = 0;
   root.overflowDirection = 'VERTICAL';
   const extra = [];
   if (o.toast) { const t = toast(o.toast); extra.push(t); }
@@ -755,7 +831,7 @@ function sheetScreen(name) {
   const root = h.root;
   const scrim = rect('Scrim', W, H, 'ink', { o: 0.42 });
   const rows = PURCHASES.map(p => purchaseRow.apply(null, p));
-  const seg = C.seg.defaultVariant.createInstance(); seg.name = 'Segmented control'; want(seg, { w: 'FILL' });
+  const seg = want(segControl(), { w: 'FILL' });
   const fieldM = want(field('Merchant or item'), { grow: true });
   const fieldA = field('$0.00'); fieldA.resize(96, 52);
   const sheet = frame('Sheet', { w: W, pad: [10, 16, 40, 16], gap: 12, bg: 'bg' }, [
@@ -763,10 +839,11 @@ function sheetScreen(name) {
     text('What are you about to buy?', 'Title/L'),
     seg,
     listCard('Purchases', rows),
-    row('Custom', { fill: true, gap: 8, cross: 'CENTER' }, [fieldM, fieldA, C.castGo.createInstance()]),
+    row('Custom', { fill: true, gap: 8, cross: 'CENTER' }, [fieldM, fieldA, castGo()]),
   ]);
   sheet.topLeftRadius = 24; sheet.topRightRadius = 24; sheet.bottomLeftRadius = 0; sheet.bottomRightRadius = 0;
   // the scrim and sheet must sit above the scrolling content but below nothing else
+  settle(sheet);
   const fixedCount = root.numberOfFixedChildren;
   root.insertChild(root.children.length - fixedCount, scrim); scrim.x = 0; scrim.y = 0;
   root.insertChild(root.children.length - fixedCount, sheet); sheet.x = 0; sheet.y = H - sheet.height;
@@ -794,7 +871,7 @@ function castingScreen(name, item) {
     frame('Gap', { h: 22, w: 10 }),
     text('Looking at this week', 'Caption', { hex: '#8F8F88' }),
   ]);
-  root.appendChild(content); content.x = 0; content.y = 0;
+  settle(content); root.appendChild(content); content.x = 0; content.y = 0;
   chrome(root, 'Light');
   return root;
 }
@@ -855,14 +932,14 @@ function verdictScreen(o) {
   ]);
   // the pet area sizes the screen: it soaks up whatever height is left
   try { petArea.minHeight = 160; } catch (e) { /* min sizes need a recent Figma */ }
-  root.appendChild(content); content.x = 0; content.y = 0;
+  settle(content); root.appendChild(content); content.x = 0; content.y = 0;
   chrome(root, o.v === 'bad' ? 'Light' : 'Dark');
   return { root: root, buttons: buttons };
 }
 
 function notificationScreen(name) {
   const h = home({ name: name, vibe: 74, charms: 0, streak: 0, mood: 'happy', moodLine: 'Thriving · keep casting good spells', level: 3, balance: ['$412', '.18'], earmark: { state: 'set', sub: 'For the water bill · set aside', amount: '$275' }, budgets: BASE_BUDGETS, history: BASE_HISTORY });
-  const n = C.notif.comp.createInstance(); n.name = 'Notification';
+  const n = notifBanner();
   h.root.appendChild(n); n.x = 8; n.y = 50;
   h.root.numberOfFixedChildren = h.root.numberOfFixedChildren + 1;
   return { root: h.root, notif: n };
@@ -878,7 +955,7 @@ function welcomeScreen(name) {
   ]);
   const start = button('Ink on lime', 'Start casting', { fill: true, icon: true });
   const content = frame('Content', { w: W, h: H, pad: [70, 24, 44, 24], gap: 14 }, [
-    row('Brand', { gap: 8, cross: 'CENTER' }, [C.mark.createInstance(), text('Spellbound', 'Title/M'), text('Ramp Family', 'Caption', { o: 0.6 })]),
+    row('Brand', { gap: 8, cross: 'CENTER' }, [mark(), text('Spellbound', 'Title/M'), text('Ramp Family', 'Caption', { o: 0.6 })]),
     hero,
     text('Meet Remy.', 'Display/Hero'),
     text('Remy reacts the second you spend — before you pay, or right after. Good spells make him thrive. Bad ones make him wilt.', 'Body/L', { fill: true }),
@@ -891,7 +968,7 @@ function welcomeScreen(name) {
     start,
     row('Note', { fill: true, main: 'CENTER' }, [text('Set up by Mom on Ramp Family', 'Caption', { o: 0.6 })]),
   ]);
-  root.appendChild(content); content.x = 0; content.y = 0;
+  settle(content); root.appendChild(content); content.x = 0; content.y = 0;
   chrome(root, 'Dark');
   return { root: root, start: start };
 }
@@ -928,7 +1005,7 @@ function explainerScreen(name) {
     ]),
     text('Runs on your phone in about 25 µs. Nothing about the purchase leaves the device.', 'Caption', { color: 'muted', fill: true }),
   ]);
-  root.appendChild(content); content.x = 0; content.y = 0;
+  settle(content); root.appendChild(content); content.x = 0; content.y = 0;
   root.overflowDirection = 'VERTICAL';
   chrome(root, 'Dark');
   return { root: root, back: back };
@@ -960,7 +1037,7 @@ function parentScreen(name) {
   const switchBack = row('Switch', { fill: true, h: 40, main: 'CENTER', cross: 'CENTER', gap: 4 }, [text('Viewing as Mom.', 'Body/M', { color: 'muted' }), text('Switch to Jordan', 'Body/M strong')]);
   const content = frame('Content', { w: W, pad: [58, 16, 48, 16], gap: 12 }, [
     row('Header', { fill: true, h: 44, main: 'SPACE_BETWEEN', cross: 'CENTER' }, [
-      row('Title', { gap: 8, cross: 'CENTER' }, [C.mark.createInstance(), text('Ramp Family', 'Title/M')]),
+      row('Title', { gap: 8, cross: 'CENTER' }, [mark(), text('Ramp Family', 'Title/M')]),
       avatar('M', 'lime'),
     ]),
     kid,
@@ -979,41 +1056,59 @@ function parentScreen(name) {
     button('Primary', 'Send money', { fill: true, icon: false }),
     switchBack,
   ]);
-  root.appendChild(content); content.x = 0; content.y = 0;
+  settle(content); root.appendChild(content); content.x = 0; content.y = 0;
   root.overflowDirection = 'VERTICAL';
   chrome(root, 'Dark');
   return { root: root, nudge: nudge, back: switchBack };
 }
 
 // ---------- the screens, wired ----------
+// Build one screen. If it fails: remove whatever it left behind, log the error, and stand in a labelled frame.
+function failedScreen(name, e) {
+  const r = screen(name, 'bg');
+  const t = text(name + ' could not be built: ' + errText(e), 'Body/M', { color: 'muted', w: W - 40 });
+  r.appendChild(t); t.x = 20; t.y = 80;
+  return r;
+}
+function build(name, fn) {
+  const page = figma.currentPage;
+  const before = new Set(page.children.map(n => n.id));
+  try { const r = fn(); log('ok', 'Screen · ' + (r.root ? r.root.name : name)); return r; } catch (e) {
+    for (const n of page.children.slice()) if (!before.has(n.id)) { try { n.remove(); } catch (x) { /* already gone */ } }
+    log('error', 'Screen · ' + name + ' — ' + errText(e));
+    console.error(e);
+    return { root: failedScreen(name, e), buttons: [], rows: [] };
+  }
+}
+
 async function buildPrototype(page) {
   await figma.setCurrentPageAsync(page);
   const S = {};
   const HOME_BASE = { vibe: 74, charms: 0, streak: 0, mood: 'happy', moodLine: 'Thriving · keep casting good spells', level: 3, balance: ['$412', '.18'], earmark: { state: 'set', sub: 'For the water bill · set aside', amount: '$275' }, budgets: BASE_BUDGETS, history: BASE_HISTORY };
-  S.welcome = welcomeScreen('01 Welcome · Meet Remy');
-  S.home = home(Object.assign({ name: '02 Home' }, HOME_BASE));
-  S.sheet = sheetScreen('03 Choose a purchase');
-  S.notif = notificationScreen('04 Notification · Apple Pay');
+  S.welcome = build('welcome', () => welcomeScreen('01 Welcome · Meet Remy'));
+  S.home = build('home', () => home(Object.assign({ name: '02 Home' }, HOME_BASE)));
+  S.sheet = build('sheet', () => sheetScreen('03 Choose a purchase'));
+  S.notif = build('notif', () => notificationScreen('04 Notification · Apple Pay'));
   const cast = {
-    good: castingScreen('05 Casting → good', 'Weekly groceries · $64.20'),
-    purpose: castingScreen('05b Casting → on purpose', 'Water bill · $275.00'),
-    treat: castingScreen('05c Casting → earned it', 'Iced oat matcha · $7.25'),
-    meh: castingScreen('05d Casting → meh', 'Dinner with friends · $38.40'),
-    bad: castingScreen('05e Casting → bad', 'Iced oat matcha · $7.25'),
-    earmark: castingScreen('05f Casting → Mom’s money', 'Cart · 6 clothing items · $275.00'),
-    paid: castingScreen('05g Casting → just paid', 'Iced oat matcha · $7.25'),
+    good: build('cast good', () => ({ root: castingScreen('05 Casting → good', 'Weekly groceries · $64.20') })).root,
+    purpose: build('cast purpose', () => ({ root: castingScreen('05b Casting → on purpose', 'Water bill · $275.00') })).root,
+    treat: build('cast treat', () => ({ root: castingScreen('05c Casting → earned it', 'Iced oat matcha · $7.25') })).root,
+    meh: build('cast meh', () => ({ root: castingScreen('05d Casting → meh', 'Dinner with friends · $38.40') })).root,
+    bad: build('cast bad', () => ({ root: castingScreen('05e Casting → bad', 'Iced oat matcha · $7.25') })).root,
+    earmark: build('cast earmark', () => ({ root: castingScreen('05f Casting → Mom’s money', 'Cart · 6 clothing items · $275.00') })).root,
+    paid: build('cast paid', () => ({ root: castingScreen('05g Casting → just paid', 'Iced oat matcha · $7.25') })).root,
   };
-  S.good = verdictScreen({ name: '06 Good spell', v: 'good', mood: 'joy', mode: 'Before you pay', item: 'Weekly groceries · Greenleaf Market', amount: '$64.20', headline: 'Good spell.', msg: 'Feeding future you. Remy approves.', score: 96, us: 24, reasons: [['+', 'Essential · groceries'], ['+', '$124 left in groceries']], actions: [['Ink on lime', 'Pay $64.20']] });
-  S.purpose = verdictScreen({ name: '07 Good spell · on purpose', v: 'good', mood: 'joy', mode: 'Before you pay', item: 'Water bill · Metro Water', amount: '$275.00', headline: 'Good spell.', msg: 'Exactly what Mom sent it for. Remy is proud of you.', score: 99, us: 24, reasons: [['+', 'What Mom sent it for'], ['+', 'Essential · bills'], ['+', '$25 left in bills']], actions: [['Ink on lime', 'Pay $275.00']] });
-  S.treat = verdictScreen({ name: '08 Earned it', v: 'meh', mood: 'meh', mode: 'Before you pay', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Earned it.', msg: 'Treat unlocked — you earned this one with good spells.', score: 62, us: 27, reasons: [['+', 'Treat unlocked · 2 charms'], ['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Primary', 'Pay $7.25'], ['Outline', 'Skip it']] });
-  S.meh = verdictScreen({ name: '09 Meh', v: 'meh', mood: 'meh', mode: 'Before you pay', item: 'Dinner with friends · Sushi Ko', amount: '$38.40', headline: 'Hmm. Meh.', msg: 'Not great, not terrible. Maybe sleep on it?', score: 58, us: 23, reasons: [['−', '2nd eating out buy this week'], ['−', 'Nice-to-have · eating out'], ['+', '$16 left in eating out']], actions: [['Primary', 'Pay $38.40'], ['Outline', 'Skip it']] });
-  S.bad = verdictScreen({ name: '10 Bad spell', v: 'bad', mood: 'sad', mode: 'Before you pay', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Bad spell.', msg: '3rd matcha this week. Remy is worried.', score: 29, us: 25, reasons: [['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Lime', 'Skip it · +1 charm'], ['Outline on ink', 'Pay anyway']] });
-  S.earmark = verdictScreen({ name: '11 Bad spell · Mom’s money', v: 'bad', mood: 'cry', mode: 'Before you pay', item: 'Cart · 6 clothing items · Closet Cart', amount: '$275.00', headline: 'Bad spell.', msg: 'That’s Mom’s money for the water bill.', score: 1, us: 39, reasons: [['−', 'Uses $138 of Mom’s water bill money'], ['−', 'Over clothing budget by $269'], ['−', 'Nice-to-have · clothing']], actions: [['Lime', 'Skip it · +1 charm'], ['Outline on ink', 'Pay anyway']] });
-  S.paid = verdictScreen({ name: '12 Just paid · Apple Pay', v: 'bad', mood: 'sad', mode: 'Just paid', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Bad spell.', msg: '3rd matcha this week. Remy is so sad.', score: 18, us: 25, reasons: [['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Lime', 'Lesson learned']] });
-  S.after = home(Object.assign({}, HOME_BASE, { name: '13 Home · after a good spell', vibe: 84, charms: 1, streak: 1, mood: 'joy', moodLine: 'Thriving · on a roll', balance: ['$347', '.98'], toast: 'Good spell · +1 charm', history: [['Good', 'groceries', 'Weekly groceries', 'Greenleaf Market · just now', '$64.20']].concat(BASE_HISTORY.slice(0, 4)) }));
-  S.wilt = home(Object.assign({}, HOME_BASE, { name: '14 Home · wilting', vibe: 28, mood: 'sad', moodLine: 'Wilting a little · needs some good spells', earmark: { state: 'risk', sub: 'For the water bill · $138 spent elsewhere', amount: '$137' }, balance: ['$137', '.18'], toast: 'Mom was notified', history: [['Bad', 'clothing', 'Cart · 6 clothing items', 'Closet Cart · just now', '$275.00']].concat(BASE_HISTORY.slice(0, 4)) }));
-  S.parent = parentScreen('15 Ramp Family · Mom’s view');
-  S.explain = explainerScreen('16 How Spellcheck decides');
+  S.good = build('good', () => verdictScreen({ name: '06 Good spell', v: 'good', mood: 'joy', mode: 'Before you pay', item: 'Weekly groceries · Greenleaf Market', amount: '$64.20', headline: 'Good spell.', msg: 'Feeding future you. Remy approves.', score: 96, us: 24, reasons: [['+', 'Essential · groceries'], ['+', '$124 left in groceries']], actions: [['Ink on lime', 'Pay $64.20']] }));
+  S.purpose = build('purpose', () => verdictScreen({ name: '07 Good spell · on purpose', v: 'good', mood: 'joy', mode: 'Before you pay', item: 'Water bill · Metro Water', amount: '$275.00', headline: 'Good spell.', msg: 'Exactly what Mom sent it for. Remy is proud of you.', score: 99, us: 24, reasons: [['+', 'What Mom sent it for'], ['+', 'Essential · bills'], ['+', '$25 left in bills']], actions: [['Ink on lime', 'Pay $275.00']] }));
+  S.treat = build('treat', () => verdictScreen({ name: '08 Earned it', v: 'meh', mood: 'meh', mode: 'Before you pay', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Earned it.', msg: 'Treat unlocked — you earned this one with good spells.', score: 62, us: 27, reasons: [['+', 'Treat unlocked · 2 charms'], ['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Primary', 'Pay $7.25'], ['Outline', 'Skip it']] }));
+  S.meh = build('meh', () => verdictScreen({ name: '09 Meh', v: 'meh', mood: 'meh', mode: 'Before you pay', item: 'Dinner with friends · Sushi Ko', amount: '$38.40', headline: 'Hmm. Meh.', msg: 'Not great, not terrible. Maybe sleep on it?', score: 58, us: 23, reasons: [['−', '2nd eating out buy this week'], ['−', 'Nice-to-have · eating out'], ['+', '$16 left in eating out']], actions: [['Primary', 'Pay $38.40'], ['Outline', 'Skip it']] }));
+  S.bad = build('bad', () => verdictScreen({ name: '10 Bad spell', v: 'bad', mood: 'sad', mode: 'Before you pay', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Bad spell.', msg: '3rd matcha this week. Remy is worried.', score: 29, us: 25, reasons: [['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Lime', 'Skip it · +1 charm'], ['Outline on ink', 'Pay anyway']] }));
+  S.earmark = build('earmark', () => verdictScreen({ name: '11 Bad spell · Mom’s money', v: 'bad', mood: 'cry', mode: 'Before you pay', item: 'Cart · 6 clothing items · Closet Cart', amount: '$275.00', headline: 'Bad spell.', msg: 'That’s Mom’s money for the water bill.', score: 1, us: 39, reasons: [['−', 'Uses $138 of Mom’s water bill money'], ['−', 'Over clothing budget by $269'], ['−', 'Nice-to-have · clothing']], actions: [['Lime', 'Skip it · +1 charm'], ['Outline on ink', 'Pay anyway']] }));
+  S.paid = build('paid', () => verdictScreen({ name: '12 Just paid · Apple Pay', v: 'bad', mood: 'sad', mode: 'Just paid', item: 'Iced oat matcha · Matcha Moon', amount: '$7.25', headline: 'Bad spell.', msg: '3rd matcha this week. Remy is so sad.', score: 18, us: 25, reasons: [['−', 'Nice-to-have · coffee & treats'], ['−', '3rd treat this week']], actions: [['Lime', 'Lesson learned']] }));
+  S.after = build('after', () => home(Object.assign({}, HOME_BASE, { name: '13 Home · after a good spell', vibe: 84, charms: 1, streak: 1, mood: 'joy', moodLine: 'Thriving · on a roll', balance: ['$347', '.98'], toast: 'Good spell · +1 charm', history: [['Good', 'groceries', 'Weekly groceries', 'Greenleaf Market · just now', '$64.20']].concat(BASE_HISTORY.slice(0, 4)) })));
+  S.wilt = build('wilt', () => home(Object.assign({}, HOME_BASE, { name: '14 Home · wilting', vibe: 28, mood: 'sad', moodLine: 'Wilting a little · needs some good spells', earmark: { state: 'risk', sub: 'For the water bill · $138 spent elsewhere', amount: '$137' }, balance: ['$137', '.18'], toast: 'Mom was notified', history: [['Bad', 'clothing', 'Cart · 6 clothing items', 'Closet Cart · just now', '$275.00']].concat(BASE_HISTORY.slice(0, 4)) })));
+  S.parent = build('parent', () => parentScreen('15 Ramp Family · Mom’s view'));
+  S.explain = build('explain', () => explainerScreen('16 How Spellcheck decides'));
 
   // lay the flows out in rows
   const rows = [
@@ -1071,7 +1166,7 @@ async function buildPrototype(page) {
 // ---------- presentation pages ----------
 // sections stack in one transparent auto-layout column, so nothing depends on measured heights
 function stack(page, name, nodes, gap, x, y) {
-  const col = frame(name, { gap: gap || 80 }, nodes);
+  const col = settle(frame(name, { gap: gap || 80 }, nodes));
   page.appendChild(col); col.x = x || 0; col.y = y || 0;
   return col;
 }
@@ -1189,16 +1284,18 @@ async function buildDesignSystem(page) {
 
 async function buildComponentsPage(page) {
   await figma.setCurrentPageAsync(page);
-  makeIcons();
-  makeRemy();
-  makePill();
-  makeButtons();
-  makeStatusBar();
-  makeLogo();
-  makeRows();
-  makeSmallComponents();
-  const icons = Object.keys(C.icon).map(k => C.icon[k]);
+  await step('Icons', makeIcons);
+  await step('Remy · 5 moods', makeRemy);
+  await step('Pill', makePill);
+  await step('Button · 6 styles', makeButtons);
+  await step('iOS status bar and home indicator', makeStatusBar);
+  await step('Logo', makeLogo);
+  await step('Rows', makeRows);
+  await step('Controls, toast, notification', makeSmallComponents);
+  const pick = f => { try { return f() || null; } catch (e) { return null; } };
   const board = (title, sub, nodes, w) => {
+    nodes = nodes.filter(Boolean);
+    if (!nodes.length) return null;
     const b = frame(title, { pad: 48, gap: 24, bg: 'paper', r: 32, stroke: 'line' }, [
       frame('Head', { gap: 6, w: w || 900 }, [text(title, 'Deck/Title S'), sub ? text(sub, 'Body/M', { color: 'muted', fill: true }) : null]),
     ]);
@@ -1207,15 +1304,18 @@ async function buildComponentsPage(page) {
     for (const n of nodes) holder.appendChild(n);
     return b;
   };
-  const boards = [
-    board('Remy', 'Variant property Mood: Happy, Joy, Meh, Sad, Heartbroken. Colours are bound to the Remy variables.', [C.remy], 1500),
-    board('Buttons', 'Properties: Style (variant), Label (text), Show icon (boolean). Always full pills, 56 tall.', [C.button.set, C.castGo]),
-    board('Rows', 'Row/Purchase for choosing, Row/Spell for history. Icon is an instance-swap property.', [C.rowP.comp, C.rowS.set]),
-    board('Controls', 'Segmented control, field, pill, stat tile (shown on ink, where it lives), toast.', [C.seg, C.field.comp, C.pill.set, frame('On ink', { pad: 16, r: 16, bg: 'ink' }, [C.stat.comp]), C.toast.comp]),
-    board('System', 'Notification banner, logo, and iOS chrome.', [C.notif.comp, C.mark, C.lockup, C.status, C.indicator], 1500),
-    board('Icons', 'Line icons on a 24 grid.', icons, 1500),
-  ];
-  stack(page, 'Component library', boards, 64);
+  await step('Component library boards', () => {
+    const stat = pick(() => C.stat.comp);
+    const boards = [
+      board('Remy', 'Variant property Mood: Happy, Joy, Meh, Sad, Heartbroken. Colours are bound to the Remy variables.', [C.remy], 1500),
+      board('Buttons', 'Properties: Style (variant), Label (text), Show icon (boolean). Always full pills, 56 tall.', [pick(() => C.button.set), C.castGo]),
+      board('Rows', 'Row/Purchase for choosing, Row/Spell for history. Icon is an instance-swap property.', [pick(() => C.rowP.comp), pick(() => C.rowS.set)]),
+      board('Controls', 'Segmented control, field, pill, stat tile (shown on ink, where it lives), toast.', [C.seg, pick(() => C.field.comp), pick(() => C.pill.set), stat ? frame('On ink', { pad: 16, r: 16, bg: 'ink' }, [stat]) : null, pick(() => C.toast.comp)]),
+      board('System', 'Notification banner, logo, and iOS chrome.', [pick(() => C.notif.comp), C.mark, C.lockup, C.status, C.indicator], 1500),
+      board('Icons', 'Line icons on a 24 grid.', Object.keys(C.icon).map(k => C.icon[k]), 1500),
+    ].filter(Boolean);
+    stack(page, 'Component library', boards, 64);
+  });
 }
 
 function flowDiagram(S) {
@@ -1324,12 +1424,12 @@ async function buildCover(page, S) {
   cover.name = 'Cover'; cover.resize(1920, 1080); cover.fills = [paint('ink')]; cover.clipsContent = true;
   page.appendChild(cover);
   const left = frame('Title block', { w: 820, gap: 28 }, [
-    row('Brand', { gap: 10, cross: 'CENTER' }, [C.mark.createInstance(), text('Ramp Family', 'Label/Caps', { color: 'lime' })]),
+    row('Brand', { gap: 10, cross: 'CENTER' }, [mark(), text('Ramp Family', 'Label/Caps', { color: 'lime' })]),
     text('Spellbound.', 'Deck/Cover', { color: 'white' }),
     text('Instant feedback on every purchase — so kids learn money the way they learn everything else: in the moment.', 'Deck/Lead', { color: 'muted-ink', w: 760 }),
     row('Tags', { gap: 10 }, ['iOS concept', 'Consumer fintech', 'Operant conditioning', 'On-device scoring'].map(t => pill(t, 'On ink'))),
   ]);
-  cover.appendChild(left); left.x = 120; left.y = 250;
+  settle(left); cover.appendChild(left); left.x = 120; left.y = 250;
   const phones = [[S.home.root, 960, 150, 0.72], [S.good.root, 1270, 230, 0.72], [S.bad.root, 1580, 310, 0.72]];
   for (const [f, x, y, s] of phones) {
     const c = f.clone(); cover.appendChild(c); c.rescale(s); c.x = x; c.y = y; c.cornerRadius = 40; c.name = 'Cover · ' + f.name;
@@ -1340,36 +1440,88 @@ async function buildCover(page, S) {
 }
 
 // ---------- run ----------
+const PANEL = `<!doctype html><meta charset="utf-8">
+<style>
+  body { margin: 0; font: 12px/1.45 Inter, system-ui, sans-serif; color: #0B0B0A; background: #fff; }
+  header { padding: 14px 16px 10px; border-bottom: 1px solid #E4E2DA; }
+  h1 { margin: 0; font-size: 14px; font-weight: 600; }
+  #status { color: #686760; margin-top: 2px; }
+  #log { list-style: none; margin: 0; padding: 8px 16px; height: 330px; overflow: auto; }
+  #log li { display: flex; gap: 8px; padding: 3px 0; }
+  #log li b { width: 14px; flex: none; text-align: center; }
+  .ok b { color: #6E8A00; } .warn b { color: #8A6A00; } .error b, .error { color: #B42318; }
+  footer { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid #E4E2DA; }
+  button { font: inherit; font-weight: 600; border-radius: 999px; padding: 8px 14px; border: 1px solid #0B0B0A; background: #fff; cursor: pointer; }
+  button.primary { background: #0B0B0A; color: #D4F53C; }
+  textarea { position: absolute; left: -9999px; }
+</style>
+<header><h1>Spellbound · building your file</h1><div id="status">Starting…</div></header>
+<ul id="log"></ul>
+<footer><button class="primary" id="copy">Copy log</button><button id="close">Close</button></footer>
+<textarea id="buf"></textarea>
+<script>
+  const log = document.getElementById('log'), status = document.getElementById('status'), lines = [];
+  onmessage = e => {
+    const m = e.data.pluginMessage; if (!m) return;
+    if (m.type === 'log') {
+      lines.push(m.kind.toUpperCase() + '  ' + m.msg);
+      const li = document.createElement('li'); li.className = m.kind;
+      li.innerHTML = '<b>' + (m.kind === 'ok' ? '✓' : m.kind === 'warn' ? '!' : m.kind === 'error' ? '✕' : '·') + '</b><span></span>';
+      li.lastChild.textContent = m.msg; log.appendChild(li); log.scrollTop = log.scrollHeight;
+      if (m.kind === 'info') status.textContent = m.msg;
+    }
+    if (m.type === 'done') { status.textContent = m.summary; status.className = m.ok ? '' : 'error'; }
+  };
+  document.getElementById('copy').onclick = () => { const b = document.getElementById('buf'); b.value = lines.join('\n'); b.select(); document.execCommand('copy'); document.getElementById('copy').textContent = 'Copied'; };
+  document.getElementById('close').onclick = () => parent.postMessage({ pluginMessage: { type: 'close' } }, '*');
+</script>`;
+
 async function main() {
-  figma.notify('Building Spellbound… this takes about a minute.', { timeout: 60000 });
-  await loadFonts();
-  makeVariables();
-  makeTextStyles();
+  figma.showUI(PANEL, { width: 380, height: 470, title: 'Spellbound' });
+  figma.ui.onmessage = m => { if (m && m.type === 'close') figma.closePlugin(); };
+  log('info', 'Checking the file…');
   // three pages, so it works on every Figma plan (Starter allows three per file)
   const existing = figma.root.children.slice();
-  for (const p of existing) { await p.loadAsync(); if (p.children.length) throw new Error('Run this in a new, empty design file (page “' + p.name + '” already has content).'); }
+  for (const p of existing) { await p.loadAsync(); if (p.children.length) throw new Error('This file already has layers on “' + p.name + '”. Run Spellbound in a new, empty design file.'); }
+  log('info', 'Loading fonts…');
+  await loadFonts();
+  log('ok', 'Fonts · ' + F.serifIt.family + ' for headlines, Inter for UI');
+  await step('Colour and layout variables', makeVariables);
+  await step('Text styles', makeTextStyles);
   const names = ['Cover & story', 'Design system', 'Prototype'];
   const list = names.map((name, i) => { const p = existing[i] || figma.createPage(); p.name = name; return p; });
   for (const extra of existing.slice(3)) { try { extra.remove(); } catch (e) { /* leave it */ } }
   const pages = { story: list[0], system: list[1], proto: list[2] };
+  log('ok', 'Pages · ' + names.join(', '));
+
+  log('info', 'Building components…');
   await buildComponentsPage(pages.system);
+  log('info', 'Building screens…');
   const S = await buildPrototype(pages.proto);
   await flushStyles(); // before cloning, so copies keep their text styles
-  annotatePrototype(pages.proto, S, S.lastRowY);
-  await buildDesignSystem(pages.system);
-  await buildCaseStudy(pages.story, S);
-  const cover = await buildCover(pages.story, S);
+  await step('Design notes under each screen', () => annotatePrototype(pages.proto, S, S.lastRowY));
+  log('info', 'Building the design system and the story…');
+  await step('Design system boards', () => buildDesignSystem(pages.system));
+  await step('Case study', () => buildCaseStudy(pages.story, S));
+  const cover = await step('Cover', () => buildCover(pages.story, S));
   await flushStyles();
   await flushArrows();
-  await flushReactions();
-  pages.proto.flowStartingPoints = S.flows.map(f => ({ nodeId: f.node.id, name: f.name }));
-  try { await figma.setFileThumbnailNodeAsync(cover); } catch (e) { /* thumbnails need edit access */ }
+  const links = await flushReactions();
+  log(links ? 'ok' : 'warn', 'Prototype links · ' + links);
+  try { pages.proto.flowStartingPoints = S.flows.filter(f => f.node && !f.node.removed).map(f => ({ nodeId: f.node.id, name: f.name })); log('ok', 'Flows · ' + S.flows.length); } catch (e) { log('error', 'Flows — ' + errText(e)); }
+  if (cover) { try { await figma.setFileThumbnailNodeAsync(cover); } catch (e) { /* thumbnails need edit access */ } }
   await figma.setCurrentPageAsync(pages.story);
-  figma.viewport.scrollAndZoomIntoView([cover]);
-  figma.closePlugin('Spellbound is ready. Open the Prototype page and press Present (iPhone 15 frame).');
+  if (cover) figma.viewport.scrollAndZoomIntoView([cover]);
+
+  const errors = LOG.filter(l => l.indexOf('ERROR') === 0).length, warns = LOG.filter(l => l.indexOf('WARN') === 0).length;
+  const summary = errors ? `Built with ${errors} problem${errors > 1 ? 's' : ''}. Copy the log and send it over.` : warns ? `Built. ${warns} small warning${warns > 1 ? 's' : ''}; see below.` : 'Built. Open the Prototype page and press Present.';
+  figma.ui.postMessage({ type: 'done', ok: !errors, summary: summary });
+  figma.notify(summary, { timeout: 8000 });
 }
 
 main().catch(e => {
   console.error(e);
-  figma.closePlugin('Spellbound build stopped: ' + (e && e.message ? e.message : e));
+  log('error', errText(e));
+  figma.ui.postMessage({ type: 'done', ok: false, summary: 'Stopped: ' + errText(e) });
+  figma.notify('Spellbound stopped: ' + errText(e), { timeout: 10000, error: true });
 });

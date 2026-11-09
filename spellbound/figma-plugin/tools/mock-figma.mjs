@@ -21,6 +21,7 @@ function pageOf(n) { while (n && n.type !== 'PAGE') n = n.parent; return n; }
 function insideInstance(n) { for (let p = n; p; p = p.parent) if (p.type === 'INSTANCE') return true; return false; }
 function owningComponent(n) { for (let p = n; p; p = p.parent) { if (p.type === 'COMPONENT') return p.parent && p.parent.type === 'COMPONENT_SET' ? p.parent : p; } return null; }
 
+const SIDE = ['strokeTopWeight', 'strokeRightWeight', 'strokeBottomWeight', 'strokeLeftWeight', 'topLeftRadius', 'topRightRadius', 'bottomRightRadius', 'bottomLeftRadius'];
 class Node {
   constructor(type) {
     this.id = (nextId++) + ':1'; this.type = type; this.parent = null; this.name = type;
@@ -30,6 +31,10 @@ class Node {
     if (CONTAINERS.has(type)) this.children = [];
     stats.nodes++;
   }
+  get strokeWeight() { const w = ['strokeTopWeight', 'strokeRightWeight', 'strokeBottomWeight', 'strokeLeftWeight'].map(k => this['_' + k]); if (w.some(x => x !== undefined) && new Set(w.map(x => x === undefined ? this._sw : x)).size > 1) return figma.mixed; return this._sw === undefined ? 1 : this._sw; }
+  set strokeWeight(v) { if (typeof v !== 'number') fail('strokeWeight must be a number (got ' + String(v) + ') on "' + this.name + '"'); this._sw = v; for (const k of ['strokeTopWeight', 'strokeRightWeight', 'strokeBottomWeight', 'strokeLeftWeight']) this['_' + k] = undefined; }
+  get cornerRadius() { const r = ['topLeftRadius', 'topRightRadius', 'bottomRightRadius', 'bottomLeftRadius'].map(k => this['_' + k]); if (r.some(x => x !== undefined) && new Set(r.map(x => x === undefined ? this._cr : x)).size > 1) return figma.mixed; return this._cr || 0; }
+  set cornerRadius(v) { if (typeof v !== 'number') fail('cornerRadius must be a number (got ' + String(v) + ') on "' + this.name + '"'); this._cr = v; for (const k of ['topLeftRadius', 'topRightRadius', 'bottomRightRadius', 'bottomLeftRadius']) this['_' + k] = undefined; }
   get layoutMode() { return this._layoutMode; }
   set layoutMode(v) { if (!['NONE', 'HORIZONTAL', 'VERTICAL', 'GRID'].includes(v)) fail('bad layoutMode ' + v); if (!['FRAME', 'COMPONENT', 'COMPONENT_SET', 'INSTANCE'].includes(this.type)) fail('layoutMode on ' + this.type); this._layoutMode = v; }
   set counterAxisAlignItems(v) { if (v === 'BASELINE' && this._layoutMode !== 'HORIZONTAL') fail('BASELINE needs a horizontal frame: ' + this.name); if (!['MIN', 'MAX', 'CENTER', 'BASELINE'].includes(v)) fail('bad counterAxisAlignItems ' + v); this._caa = v; }
@@ -42,6 +47,11 @@ class Node {
   set layoutSizingVertical(v) { this._sizing('v', v); }
   _sizing(axis, v) {
     if (v === 'FILL' && !isAuto(this.parent)) fail(`FILL can only be set on children of auto-layout frames (${this.type} "${this.name}" in ${this.parent ? this.parent.type + ' "' + this.parent.name + '"' : 'nothing'})`);
+    if (v === 'FILL' && process.env.STRICT_FILL !== '0') {
+      const along = (this.parent.layoutMode === 'HORIZONTAL') === (axis === 'h');
+      const pSize = axis === 'h' ? this.parent._lsh : this.parent._lsv;
+      if (pSize === 'HUG' && !(this.parent.type === 'COMPONENT_SET')) fail(`FILL on "${this.name}" while its parent "${this.parent.name}" still hugs that axis${along ? '' : ' (cross axis)'}`);
+    }
     if (v === 'HUG' && !(isAuto(this) || this.type === 'TEXT')) fail(`HUG can only be set on auto-layout frames and text ("${this.name}")`);
     if (!['FIXED', 'HUG', 'FILL'].includes(v)) fail('bad sizing ' + v);
     if (axis === 'h') this._lsh = v; else this._lsv = v;
@@ -185,6 +195,10 @@ class Node {
     }
   }
 }
+for (const k of SIDE) Object.defineProperty(Node.prototype, k, {
+  get() { const v = this['_' + k]; return v === undefined ? (k.endsWith('Weight') ? (this._sw === undefined ? 1 : this._sw) : (this._cr || 0)) : v; },
+  set(v) { if (typeof v !== 'number') fail(k + ' must be a number'); this['_' + k] = v; },
+});
 const all = new Map();
 function track(n) { all.set(n.id, n); return n; }
 function cloneDeep(src, parent, asType) {
@@ -210,6 +224,8 @@ const figma = {
   async setCurrentPageAsync(p) { if (p.type !== 'PAGE') fail('not a page'); this.currentPage = p; },
   async loadFontAsync(f) { const k = fontKey(f); if (!AVAILABLE.includes(k)) throw new Error('font unavailable ' + k); loaded.add(k); },
   notify() {},
+  showUI() { figma.ui._shown = true; },
+  ui: { _log: [], postMessage(m) { this._log.push(m); if (m.type === 'done') figma._closed = m.summary || 'done'; }, onmessage: null, resize() {} },
   closePlugin(msg) { figma._closed = msg; },
   async setFileThumbnailNodeAsync(n) { if (n.type !== 'FRAME') fail('thumbnail must be a frame'); },
   createPage() {
@@ -265,6 +281,9 @@ vm.runInContext(code, ctx);
 const wait = () => new Promise(r => setTimeout(r, 50));
 for (let i = 0; i < 200 && !figma._closed; i++) await wait();
 console.log('closePlugin:', figma._closed);
+const errs = figma.ui._log.filter(m => m.type === 'log' && m.kind !== 'ok');
+if (process.env.SHOW_LOG) for (const m of figma.ui._log) if (m.type === 'log') console.log('  ' + ({ ok: '✓', warn: '!', error: '✕', info: '·' }[m.kind]) + ' ' + m.msg);
+if (figma.ui._log.length) console.log('panel log:', figma.ui._log.filter(m => m.type === 'log').length, 'lines,', errs.length, 'problems', errs.slice(0, 12).map(m => '\n  ' + m.kind + ': ' + m.msg).join(''));
 console.log('stats:', JSON.stringify(stats), 'ms:', Date.now() - t0);
 const pages = figma.root.children.map(p => `${p.name} (${p.children.length} top-level)`);
 console.log('pages:', pages.join(' · '));

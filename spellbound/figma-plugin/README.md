@@ -9,10 +9,14 @@ Development plugins only run in the **desktop app**, not in the browser.
 1. Download this folder (`spellbound/figma-plugin/`) to your computer. It needs `manifest.json` and `code.js`; nothing else, no install.
 2. In Figma desktop, create a **new, empty design file**. If an earlier run stopped partway, start a fresh file; the plugin won't build into a file that already has layers.
 3. Menu → **Plugins → Development → Import plugin from manifest…** and pick `manifest.json`.
-4. Menu → **Plugins → Development → Spellbound · build design file**. Leave Figma alone until the toast says *Spellbound is ready*.
+4. Menu → **Plugins → Development → Spellbound · build design file**. A **Spellbound** panel opens and ticks off each step: fonts, variables, every component, all 16 screens, the design system, the case study, the cover, the prototype links. Leave Figma alone until the panel says *Built*.
 5. Open the **Prototype** page. In the right panel, under **Prototype**, set the device to **iPhone 15** (or 16). Press **Present**, choose a flow, and click through.
 
 **Fonts:** Inter ships with Figma. The verdict headlines use **Instrument Serif** (a Google font). If it isn't available, the plugin falls back to Playfair Display, then Inter. Nothing breaks, but install Instrument Serif first for the intended look.
+
+### If something goes wrong
+
+The panel lists anything that failed, with Figma's exact error. One failed piece doesn't stop the rest: a screen that can't be built is replaced by a labelled placeholder frame, and the build carries on. Press **Copy log** and send the log over; it names the exact step to fix.
 
 ## What you get
 
