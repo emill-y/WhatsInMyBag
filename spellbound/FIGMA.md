@@ -1,11 +1,12 @@
 # Spellbound in Figma
 
-Finished screens and a presentation board are in `mockups/` (`spellbound-board.png`). Drop them into Figma as a visual reference, or import live layers as below.
+## Best: build the whole file with the plugin
 
-Three parts, one Figma file:
-1. **Screens**: the real app imported as editable layers (most accurate).
-2. **Prototype**: screens wired together with Smart Animate.
-3. **Workflow**: the system diagram in FigJam.
+`figma-plugin/` builds the complete, competition-ready file inside Figma: cover, case study, design system, components, 16 screens and a 5-flow prototype, all native (variables, text styles, components, auto layout). Steps are in [`figma-plugin/README.md`](figma-plugin/README.md). Previews: `mockups/figma-cover.png`, `mockups/figma-screens-page.png`.
+
+## Other options
+
+Finished screens and a presentation board are in `mockups/` (`spellbound-board.png`). Drop them into Figma as a visual reference, or import the live app as layers:
 
 Base URL for every link below:
 `https://raw.githack.com/emill-y/WhatsInMyBag/67d55a528d7f8cef5e9106c2708a1709df3d3ce6/spellbound/index.html`

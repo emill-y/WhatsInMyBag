@@ -1,0 +1,9 @@
+{
+  "name": "Spellbound · build design file",
+  "id": "spellbound-build-design-file",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": { "allowedDomains": ["none"] }
+}
