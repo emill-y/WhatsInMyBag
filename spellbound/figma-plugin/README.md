@@ -7,7 +7,7 @@ A Figma plugin that builds the complete Spellbound design file in about a minute
 Development plugins only run in the **desktop app**, not in the browser.
 
 1. Download this folder (`spellbound/figma-plugin/`) to your computer. It needs `manifest.json` and `code.js`; nothing else, no install.
-2. In Figma desktop, create a **new, empty design file**.
+2. In Figma desktop, create a **new, empty design file**. If an earlier run stopped partway, start a fresh file; the plugin won't build into a file that already has layers.
 3. Menu → **Plugins → Development → Import plugin from manifest…** and pick `manifest.json`.
 4. Menu → **Plugins → Development → Spellbound · build design file**. Leave Figma alone until the toast says *Spellbound is ready*.
 5. Open the **Prototype** page. In the right panel, under **Prototype**, set the device to **iPhone 15** (or 16). Press **Present**, choose a flow, and click through.
@@ -16,14 +16,13 @@ Development plugins only run in the **desktop app**, not in the browser.
 
 ## What you get
 
+Three pages, so it works on every Figma plan (the free Starter plan allows three per file):
+
 | Page | Contents |
 |---|---|
-| **Cover** | 1920 × 1080 title card. It's also set as the file thumbnail. |
-| **Case study** | Problem · insight (operant conditioning, Ramp's "in the moment") · the idea · how Spellcheck decides · the loop · user flow · Ramp Family · design principles |
-| **Design system** | Colour (variables with usage notes) · type (20 app styles + 9 presentation styles) · spacing and radius · icons · Remy's moods · motion and sound spec · voice |
-| **Components** | Remy (Mood variant) · Button (6 styles, *Label* and *Show icon* properties) · Row/Purchase and Row/Spell (icon is an instance-swap property) · segmented control · field · pill · stat tile · toast · notification · logo · iOS status bar and home indicator · 17 icons |
-| **Screens** | All 16 screens with design notes, plus the full-length home scroll |
-| **Prototype** | The same screens wired into 5 flows (below) |
+| **Cover & story** | 1920 × 1080 cover, set as the file thumbnail. Below it, the case study: problem · insight (operant conditioning, Ramp's "in the moment") · the idea · how Spellcheck decides · the loop · user flow · Ramp Family · design principles. |
+| **Design system** | **Component library:** Remy (Mood variant) · Button (6 styles, *Label* and *Show icon* properties) · Row/Purchase and Row/Spell (icon is an instance-swap property) · segmented control · field · pill · stat tile · toast · notification · logo · iOS status bar and home indicator · 17 icons. **Beside it, the design system:** colour (variables with usage notes) · type (20 app styles + 9 presentation styles) · spacing and radius · icons · Remy's moods · motion and sound spec · voice. |
+| **Prototype** | All 16 hi-fi screens, each with its design note, wired into 5 flows (below), plus the full-length home scroll. |
 
 ### Prototype flows
 
@@ -53,6 +52,6 @@ Also wired: "How Spellcheck decides" on Home opens the explainer (push transitio
 - Screens, copy and components live in `src/plugin.js`. Art (Remy, the wand, sparkles, smoke, icons) lives in `assets.json`. Rebuild with `node make.mjs`, which writes `code.js`.
 - Re-export the art from the app with `node tools/extract-assets.mjs` (needs Playwright).
 - **Test without Figma:** `node tools/mock-figma.mjs code.js` runs the build against a strict mock of the Figma API.
-  - It fails on the mistakes real Figma rejects: FILL outside auto layout, unloaded fonts, bad component-property keys, prototype links to frames that aren't top-level.
+  - It fails on the mistakes real Figma rejects: FILL outside auto layout, unloaded fonts, bad component-property keys, prototype links to frames that aren't top-level, and more than 3 pages (the Starter limit; `PAGE_LIMIT=0` lifts it).
   - It reports layer counts, flows, dead ends and unstyled text.
   - Add `RENDER=1` to also write an HTML preview of every page.

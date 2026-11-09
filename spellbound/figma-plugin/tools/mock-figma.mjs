@@ -197,6 +197,7 @@ function cloneDeep(src, parent, asType) {
 
 const page1 = track(new Node('PAGE'));
 page1.name = 'Page 1';
+page1.loadAsync = async () => {};
 Object.defineProperty(page1, 'flowStartingPoints', {
   set(v) { for (const f of v) { const n = all.get(f.nodeId); if (!n || n.parent !== page1 && n.parent && n.parent.type !== 'PAGE') fail('flow start must be a top-level frame'); } this._flows = v; },
   get() { return this._flows || []; },
@@ -212,7 +213,11 @@ const figma = {
   closePlugin(msg) { figma._closed = msg; },
   async setFileThumbnailNodeAsync(n) { if (n.type !== 'FRAME') fail('thumbnail must be a frame'); },
   createPage() {
+    // Starter plan files hold 3 pages; PAGE_LIMIT=0 lifts the limit
+    const limit = process.env.PAGE_LIMIT === undefined ? 3 : +process.env.PAGE_LIMIT;
+    if (limit && this.root.children.length >= limit) throw new Error('Starter plan only comes with ' + limit + ' pages');
     const p = track(new Node('PAGE'));
+    p.loadAsync = async () => {};
     Object.defineProperty(p, 'flowStartingPoints', {
       set(v) { for (const f of v) { const n = all.get(f.nodeId); if (!n || !n.parent || n.parent !== p) fail('flow start must be a top-level frame on this page: ' + (n && n.name)); } this._flows = v; },
       get() { return this._flows || []; },
@@ -250,6 +255,9 @@ for (const [fn, type] of [['createFrame', 'FRAME'], ['createComponent', 'COMPONE
   figma[fn] = function () { const n = track(new Node(type)); if (type === 'TEXT') stats.texts++; if (type === 'COMPONENT') stats.components++; figma.currentPage.appendChild(n); return n; };
 }
 
+// PRE_PAGES=n starts with n empty pages (like a file left by an earlier run); DIRTY=1 puts a layer on the first page
+for (let i = 1; i < +(process.env.PRE_PAGES || 1); i++) figma.createPage().name = 'Leftover ' + i;
+if (process.env.DIRTY) { const r = figma.createRectangle(); r.name = 'Existing work'; }
 const code = readFileSync(process.argv[2], 'utf8');
 const ctx = vm.createContext({ figma, console, setTimeout, Promise, Object, Math, String, Array, Map, Set, Symbol, Error, JSON, parseInt });
 const t0 = Date.now();

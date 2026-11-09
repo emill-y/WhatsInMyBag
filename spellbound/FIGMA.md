@@ -2,7 +2,7 @@
 
 ## Best: build the whole file with the plugin
 
-`figma-plugin/` builds the complete, competition-ready file inside Figma: cover, case study, design system, components, 16 screens and a 5-flow prototype, all native (variables, text styles, components, auto layout). Steps are in [`figma-plugin/README.md`](figma-plugin/README.md). Previews: `mockups/figma-cover.png`, `mockups/figma-screens-page.png`.
+`figma-plugin/` builds the complete, competition-ready file inside Figma on three pages (works on the free Starter plan): cover and case study, design system and components, and 16 screens wired into a 5-flow prototype, all native (variables, text styles, components, auto layout). Steps are in [`figma-plugin/README.md`](figma-plugin/README.md). Previews: `mockups/figma-cover.png`, `mockups/figma-screens-page.png`.
 
 ## Other options
 

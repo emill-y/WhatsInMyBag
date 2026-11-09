@@ -1028,6 +1028,7 @@ async function buildPrototype(page) {
     const t = text(title, 'Deck/Title L'); page.appendChild(t); t.x = 0; t.y = y;
     const s = text(sub, 'Deck/Body L', { color: 'muted' }); page.appendChild(s); s.x = 0; s.y = y + 72;
     frames.forEach((f, i) => { page.appendChild(f); f.x = i * (W + 120); f.y = y + 150; });
+    S.lastRowY = y + 150;
     y += 150 + H + 260;
   }
 
@@ -1069,9 +1070,9 @@ async function buildPrototype(page) {
 
 // ---------- presentation pages ----------
 // sections stack in one transparent auto-layout column, so nothing depends on measured heights
-function stack(page, name, nodes, gap) {
+function stack(page, name, nodes, gap, x, y) {
   const col = frame(name, { gap: gap || 80 }, nodes);
-  page.appendChild(col); col.x = 0; col.y = 0;
+  page.appendChild(col); col.x = x || 0; col.y = y || 0;
   return col;
 }
 function caption(parent, title, sub, x, y, width) {
@@ -1098,28 +1099,18 @@ const SCREEN_NOTES = {
   '16 How Spellcheck decides': 'The model in plain words: what it weighs and what the score means.',
 };
 
-async function buildScreensPage(page, S) {
-  await figma.setCurrentPageAsync(page);
-  const order = [S.welcome.root, S.home.root, S.sheet.root, S.notif.root, S.cast.good, S.good.root, S.purpose.root, S.treat.root, S.meh.root, S.bad.root, S.earmark.root, S.paid.root, S.after.root, S.wilt.root, S.parent.root, S.explain.root];
-  const head = text('Hi-fi screens', 'Deck/Display'); page.appendChild(head); head.x = 0; head.y = 0;
-  const sub = text('iPhone 15 · 393 × 852 · every screen is auto layout built from the Components page. The wired version lives on the Prototype page.', 'Deck/Body L', { color: 'muted' }); page.appendChild(sub); sub.x = 0; sub.y = 130;
-  const perRow = 6, gx = 100, gy = 300;
-  order.forEach((f, i) => {
-    const c = f.clone();
-    page.appendChild(c);
-    const col = i % perRow, r = Math.floor(i / perRow);
-    c.x = col * (W + gx); c.y = 260 + r * (H + gy);
-    caption(page, c.name, SCREEN_NOTES[f.name] || '', c.x, c.y + H + 28, W);
-  });
-  // full-length home
+// design notes under every screen, and the whole home scroll beside the last flow
+function annotatePrototype(page, S, lastRowY) {
+  for (const f of page.children.filter(n => n.type === 'FRAME' && n.height === H)) {
+    caption(page, f.name, SCREEN_NOTES[f.name] || '', f.x, f.y + H + 28, W);
+  }
   const full = S.home.root.clone();
   page.appendChild(full);
   const content = full.findOne(n => n.name === 'Content');
   full.resize(W, Math.max(H, content.height));
-  const fixed = full.children.slice(full.children.length - full.numberOfFixedChildren);
-  for (const f of fixed) if (f.name === 'Home indicator') f.y = full.height - 34;
+  for (const f of full.children.slice(full.children.length - full.numberOfFixedChildren)) if (f.name === 'Home indicator') f.y = full.height - 34;
   full.name = '02 Home · full length';
-  full.x = perRow * (W + gx) + 80; full.y = 260;
+  full.x = 3 * (W + 120); full.y = lastRowY;
   caption(page, full.name, 'The whole home scroll: pet, money, budgets, recent spells and the explainer link.', full.x, full.y + full.height + 28, W);
 }
 
@@ -1192,7 +1183,8 @@ async function buildDesignSystem(page) {
       ['Not great, not terrible. Maybe sleep on it?', 'Warning: suboptimal purchase.', 'Meh means the choice is still yours.'],
     ], [440, 440, 520]),
   ]);
-  stack(page, 'Design system', [colours, type, space, icons, moods, motion, voice]);
+  const lib = page.findOne(n => n.name === 'Component library' && n.parent === page);
+  stack(page, 'Design system', [colours, type, space, icons, moods, motion, voice], 80, lib ? lib.x + lib.width + 240 : 0, 0);
 }
 
 async function buildComponentsPage(page) {
@@ -1323,7 +1315,7 @@ async function buildCaseStudy(page, S) {
       ]),
     ]),
   ];
-  stack(page, 'Case study', sections);
+  stack(page, 'Case study', sections, 80, 0, 1080 + 240);
 }
 
 async function buildCover(page, S) {
@@ -1353,26 +1345,26 @@ async function main() {
   await loadFonts();
   makeVariables();
   makeTextStyles();
-  const pages = {};
-  const first = figma.root.children[0];
-  first.name = 'Cover';
-  pages.cover = first;
-  for (const [k, name] of [['story', 'Case study'], ['system', 'Design system'], ['components', 'Components'], ['screens', 'Screens'], ['proto', 'Prototype']]) {
-    const p = figma.createPage(); p.name = name; pages[k] = p;
-  }
-  await buildComponentsPage(pages.components);
+  // three pages, so it works on every Figma plan (Starter allows three per file)
+  const existing = figma.root.children.slice();
+  for (const p of existing) { await p.loadAsync(); if (p.children.length) throw new Error('Run this in a new, empty design file (page “' + p.name + '” already has content).'); }
+  const names = ['Cover & story', 'Design system', 'Prototype'];
+  const list = names.map((name, i) => { const p = existing[i] || figma.createPage(); p.name = name; return p; });
+  for (const extra of existing.slice(3)) { try { extra.remove(); } catch (e) { /* leave it */ } }
+  const pages = { story: list[0], system: list[1], proto: list[2] };
+  await buildComponentsPage(pages.system);
   const S = await buildPrototype(pages.proto);
   await flushStyles(); // before cloning, so copies keep their text styles
-  await buildScreensPage(pages.screens, S);
+  annotatePrototype(pages.proto, S, S.lastRowY);
   await buildDesignSystem(pages.system);
   await buildCaseStudy(pages.story, S);
-  const cover = await buildCover(pages.cover, S);
+  const cover = await buildCover(pages.story, S);
   await flushStyles();
   await flushArrows();
   await flushReactions();
   pages.proto.flowStartingPoints = S.flows.map(f => ({ nodeId: f.node.id, name: f.name }));
   try { await figma.setFileThumbnailNodeAsync(cover); } catch (e) { /* thumbnails need edit access */ }
-  await figma.setCurrentPageAsync(pages.cover);
+  await figma.setCurrentPageAsync(pages.story);
   figma.viewport.scrollAndZoomIntoView([cover]);
   figma.closePlugin('Spellbound is ready. Open the Prototype page and press Present (iPhone 15 frame).');
 }
